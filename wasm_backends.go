@@ -185,7 +185,7 @@ func EmitEvent(topic string, payload any) {
 type activityInput struct {
 	TaskID       string `json:"task_id"`
 	ProjectID    string `json:"project_id"`
-	ActorID      string `json:"actor_id,omitempty"`
+	ActorID      string `json:"actor_id"`
 	ActivityType string `json:"activity_type"`
 	Content      any    `json:"content"`
 }
