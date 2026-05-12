@@ -202,8 +202,13 @@ func RecordActivity(taskID, projectID, actorUserID, activityType string, content
 		ActivityType: activityType,
 		Content:      content,
 	}
-	payloadBytes, _ := json.Marshal(inp)
-	hostActivityRecord(int64(ptrOf(payloadBytes)), int64(len(payloadBytes)))
+	payloadBytes, err := json.Marshal(inp)
+	if err != nil {
+		return
+	}
+	if !hostActivityRecord(int64(ptrOf(payloadBytes)), int64(len(payloadBytes))) {
+		return
+	}
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
