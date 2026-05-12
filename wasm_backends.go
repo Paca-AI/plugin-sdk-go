@@ -185,7 +185,7 @@ func EmitEvent(topic string, payload any) {
 type activityInput struct {
 	TaskID       string `json:"task_id"`
 	ProjectID    string `json:"project_id"`
-	ActorID      string `json:"actor_id"`
+	ActorID      string `json:"actor_id,omitempty"`
 	ActivityType string `json:"activity_type"`
 	Content      any    `json:"content"`
 }
@@ -202,13 +202,8 @@ func RecordActivity(taskID, projectID, actorUserID, activityType string, content
 		ActivityType: activityType,
 		Content:      content,
 	}
-	payloadBytes, err := json.Marshal(inp)
-	if err != nil {
-		return
-	}
-	if !hostActivityRecord(int64(ptrOf(payloadBytes)), int64(len(payloadBytes))) {
-		return
-	}
+	payloadBytes, _ := json.Marshal(inp)
+	hostActivityRecord(int64(ptrOf(payloadBytes)), int64(len(payloadBytes)))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
