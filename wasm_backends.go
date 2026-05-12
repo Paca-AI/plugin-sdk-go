@@ -179,6 +179,33 @@ func EmitEvent(topic string, payload any) {
 	)
 }
 
+// ── RecordActivity ────────────────────────────────────────────────────────────
+
+// activityInput is the JSON shape sent to the paca.activity_record host function.
+type activityInput struct {
+	TaskID       string `json:"task_id"`
+	ProjectID    string `json:"project_id"`
+	ActorID      string `json:"actor_id,omitempty"`
+	ActivityType string `json:"activity_type"`
+	Content      any    `json:"content"`
+}
+
+// RecordActivity appends a task-activity event to the paca activity stream so
+// that it is persisted to PostgreSQL by the ActivityConsumer worker.
+// actorUserID should be req.Caller.UserID (the authenticated user's UUID).
+// content must be JSON-encodable and match the expected shape for activityType.
+func RecordActivity(taskID, projectID, actorUserID, activityType string, content any) {
+	inp := activityInput{
+		TaskID:       taskID,
+		ProjectID:    projectID,
+		ActorID:      actorUserID,
+		ActivityType: activityType,
+		Content:      content,
+	}
+	payloadBytes, _ := json.Marshal(inp)
+	hostActivityRecord(int64(ptrOf(payloadBytes)), int64(len(payloadBytes)))
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 //go:nocheckptr
