@@ -50,6 +50,7 @@ func RecordActivity(_, _, _, _ string, _ any) {}
 
 // ptrOf and hostError are used by wasm_backends.go (wasip1 only); provide
 // stubs here so the non-WASM build does not need them.
+//
 //nolint:unused // used in wasm_backends.go in WASM builds
 type hostError struct{ msg string }
 
