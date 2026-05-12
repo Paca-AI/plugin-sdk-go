@@ -49,6 +49,12 @@ func hostStorageDelete(keyPtr, keyLen int64) int32
 //go:noescape
 func hostEventEmit(topicPtr, topicLen, payloadPtr, payloadLen int64) int32
 
+// paca.activity_record(payloadPtr i64, payloadLen i64) -> ok i32
+//
+//go:wasmimport paca activity_record
+//go:noescape
+func hostActivityRecord(payloadPtr, payloadLen int64) int32
+
 // paca.config_get(keyPtr i64, keyLen i64, valuePtrPtr i64, valueLenPtr i64)
 //
 //go:wasmimport paca config_get

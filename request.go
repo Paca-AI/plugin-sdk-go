@@ -7,6 +7,9 @@ import "encoding/json"
 type CallerIdentity struct {
 	// CallerID is the project_member UUID of the caller.
 	CallerID string `json:"caller_id"`
+	// UserID is the authenticated user's UUID (JWT sub claim).
+	// Use this as actor_id when recording task activities.
+	UserID string `json:"user_id"`
 	// CallerRole is the role name of the caller within the project.
 	CallerRole string `json:"caller_role"`
 	// ProjectID is the project the request is scoped to.

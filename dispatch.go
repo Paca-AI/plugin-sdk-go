@@ -45,6 +45,7 @@ func (d *dispatcher) handleRequest(payload []byte) []byte {
 		Query      map[string]string `json:"query"`
 		ProjectID  string            `json:"project_id"`
 		CallerID   string            `json:"caller_id"`
+		UserID     string            `json:"user_id"`
 		CallerRole string            `json:"caller_role"`
 		Headers    map[string]string `json:"headers"`
 		Body       []byte            `json:"body"`
@@ -70,6 +71,7 @@ func (d *dispatcher) handleRequest(payload []byte) []byte {
 		Body:       hr.Body,
 		Caller: CallerIdentity{
 			CallerID:   hr.CallerID,
+			UserID:     hr.UserID,
 			CallerRole: hr.CallerRole,
 			ProjectID:  hr.ProjectID,
 		},
