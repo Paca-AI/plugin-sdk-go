@@ -48,6 +48,20 @@ func EmitEvent(_ string, _ any) {}
 // RecordActivity is a no-op outside WASM.
 func RecordActivity(_, _, _, _ string, _ any) {}
 
+// FetchResponse is also defined in wasm_backends.go (wasip1); provide the
+// type here so non-WASM consumers can reference it.
+type FetchResponse struct {
+	Status  int               `json:"status"`
+	Body    string            `json:"body"`
+	Headers map[string]string `json:"headers"`
+	Error   string            `json:"error"`
+}
+
+// Fetch always returns errNotWASM outside a WASM module.
+func Fetch(_, _ string, _ map[string]string, _ string) (*FetchResponse, error) {
+	return nil, errNotWASM
+}
+
 // ptrOf and hostError are used by wasm_backends.go (wasip1 only); provide
 // stubs here so the non-WASM build does not need them.
 //
