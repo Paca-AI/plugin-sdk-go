@@ -4,6 +4,7 @@ package plugin
 
 import (
 	"encoding/json"
+	"fmt"
 	"unsafe"
 )
 
@@ -204,6 +205,55 @@ func RecordActivity(taskID, projectID, actorUserID, activityType string, content
 	}
 	payloadBytes, _ := json.Marshal(inp)
 	hostActivityRecord(int64(ptrOf(payloadBytes)), int64(len(payloadBytes)))
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+
+// FetchResponse is the result of a Fetch call.
+type FetchResponse struct {
+	Status  int               `json:"status"`
+	Body    string            `json:"body"`
+	Headers map[string]string `json:"headers"`
+	Error   string            `json:"error"`
+}
+
+// Fetch makes an outbound HTTP request via the paca.fetch host function.
+// The URL's domain must be listed in the plugin manifest's allowedOutboundDomains.
+func Fetch(method, rawURL string, headers map[string]string, body string) (*FetchResponse, error) {
+	req := struct {
+		Method  string            `json:"method"`
+		URL     string            `json:"url"`
+		Headers map[string]string `json:"headers"`
+		Body    string            `json:"body"`
+	}{
+		Method:  method,
+		URL:     rawURL,
+		Headers: headers,
+		Body:    body,
+	}
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	outputBuf := make([]byte, 8)
+	hostFetch(
+		int64(ptrOf(reqJSON)), int64(len(reqJSON)),
+		int64(ptrOf(outputBuf)), int64(ptrOf(outputBuf[4:])),
+	)
+	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
+	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
+	if resLen == 0 {
+		return nil, fmt.Errorf("plugin: fetch: empty response from host")
+	}
+	resBytes := wasmSlice(resPtr, resLen)
+	var resp FetchResponse
+	if err := json.Unmarshal(resBytes, &resp); err != nil {
+		return nil, fmt.Errorf("plugin: fetch: decode response: %w", err)
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("plugin: fetch: %s", resp.Error)
+	}
+	return &resp, nil
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
