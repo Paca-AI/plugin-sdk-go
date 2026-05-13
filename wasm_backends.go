@@ -242,11 +242,11 @@ func Fetch(method, rawURL string, headers map[string]string, body string) (*Fetc
 	)
 	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
 	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
-	defer wasmResetAllocator()
 	if resLen == 0 {
 		return nil, fmt.Errorf("plugin: fetch: empty response from host")
 	}
-	resBytes := wasmSlice(resPtr, resLen)
+	resBytes := append([]byte(nil), wasmSlice(resPtr, resLen)...)
+	wasmResetAllocator()
 	var resp FetchResponse
 	if err := json.Unmarshal(resBytes, &resp); err != nil {
 		return nil, fmt.Errorf("plugin: fetch: decode response: %w", err)
