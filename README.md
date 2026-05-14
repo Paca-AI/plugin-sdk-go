@@ -80,6 +80,10 @@ The bridge between your plugin and the Paca host. Available via `Init(ctx)`:
 - `ctx.Route(method, path, handler)` — register an HTTP endpoint
 - `ctx.On(event, handler)` — subscribe to a core platform event
 
+Route-level host middleware (for example `authn`, `requireFreshPassword`,
+`requirePermissions`) is configured in `plugin.json` under
+`backend.routes[].middlewares`.
+
 ### `DB`
 Typed SQL execution. The host enforces row-level scoping; you can only see data for the project where the plugin is enabled.
 - `db.Query(sql, args...)` — execute a read query; returns `[]map[string]any`
