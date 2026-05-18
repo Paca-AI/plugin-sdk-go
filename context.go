@@ -23,8 +23,10 @@ type routeKey struct {
 // Route registers a handler for the given HTTP method and path.
 // Paths are relative to the plugin's base URL:
 //
-//	/api/v1/plugins/{pluginId}/projects/:projectId/{path}
+//	/api/v1/plugins/{pluginId}/{path}
 //
+// Project-scoped routes should include /projects/:projectId in the path
+// (e.g. "/projects/:projectId/tasks/:taskId/items").
 // Path parameters are available via [Request.PathParam].
 func (c *Context) Route(method, path string, handler RouteHandler) {
 	c.routes[routeKey{strings.ToUpper(method), path}] = handler
