@@ -14,10 +14,11 @@ var errNotWASM = errors.New("plugin: this function is only available in a WASM m
 
 // ── Stubs ─────────────────────────────────────────────────────────────────────
 
-func newWASMDBBackend() DBBackend         { return &stubDBBackend{} }
-func newWASMKVBackend() KVBackend         { return &stubKVBackend{} }
-func newWASMLogBackend() LogBackend       { return &stubLogBackend{} }
-func newWASMConfigBackend() ConfigBackend { return &stubConfigBackend{} }
+func newWASMDBBackend() DBBackend                 { return &stubDBBackend{} }
+func newWASMKVBackend() KVBackend                 { return &stubKVBackend{} }
+func newWASMLogBackend() LogBackend               { return &stubLogBackend{} }
+func newWASMConfigBackend() ConfigBackend         { return &stubConfigBackend{} }
+func newWASMPermissionBackend() PermissionBackend { return &stubPermissionBackend{} }
 
 type stubDBBackend struct{}
 
@@ -41,6 +42,10 @@ func (b *stubLogBackend) Log(_ int, _ string) {}
 type stubConfigBackend struct{}
 
 func (b *stubConfigBackend) Get(_ string) (string, bool) { return "", false }
+
+type stubPermissionBackend struct{}
+
+func (b *stubPermissionBackend) Check(_ string) bool { return false }
 
 // EmitEvent is a no-op outside WASM.
 func EmitEvent(_ string, _ any) {}

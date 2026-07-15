@@ -82,7 +82,7 @@ func (db *InMemoryDB) Query(sql string, params []any) (*plugin.DBQueryResult, er
 }
 
 func (db *InMemoryDB) querySelect(sql string, params []any) (*plugin.DBQueryResult, error) {
-	tableName, whereCol, whereParam, err := parseSimpleSelect(sql)
+	tableName, conditions, err := parseTableAndConditions(sql)
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +92,12 @@ func (db *InMemoryDB) querySelect(sql string, params []any) (*plugin.DBQueryResu
 	}
 
 	result := &plugin.DBQueryResult{Columns: t.columns}
-	colIdx := colIndex(t.columns, whereCol)
-
 	for _, row := range t.rows {
-		if whereCol == "" || (colIdx >= 0 && colIdx < len(row) && fmt.Sprint(row[colIdx]) == fmt.Sprint(params[whereParam-1])) {
+		matches, err := matchesConditions(t.columns, row, conditions, params)
+		if err != nil {
+			return nil, err
+		}
+		if matches {
 			rowCopy := make([]any, len(row))
 			copy(rowCopy, row)
 			result.Rows = append(result.Rows, rowCopy)
@@ -195,7 +197,7 @@ func (db *InMemoryDB) insertRow(sql string, params []any) (*table, []any, error)
 }
 
 func (db *InMemoryDB) execDelete(sql string, params []any) (int64, error) {
-	tableName, whereCol, whereParam, err := parseSimpleWhere(sql)
+	tableName, conditions, err := parseTableAndConditions(sql)
 	if err != nil {
 		return 0, err
 	}
@@ -203,16 +205,14 @@ func (db *InMemoryDB) execDelete(sql string, params []any) (int64, error) {
 	if !ok {
 		return 0, nil
 	}
-	if whereCol == "" {
-		count := int64(len(t.rows))
-		t.rows = nil
-		return count, nil
-	}
-	colIdx := colIndex(t.columns, whereCol)
 	var kept [][]any
 	var deleted int64
 	for _, row := range t.rows {
-		if colIdx >= 0 && colIdx < len(row) && fmt.Sprint(row[colIdx]) == fmt.Sprint(params[whereParam-1]) {
+		matches, matchErr := matchesConditions(t.columns, row, conditions, params)
+		if matchErr != nil {
+			return 0, matchErr
+		}
+		if matches {
 			deleted++
 		} else {
 			kept = append(kept, row)
@@ -235,7 +235,7 @@ func (db *InMemoryDB) execUpdate(sql string, params []any) (int64, error) {
 
 	updated := int64(0)
 	for _, row := range t.rows {
-		matches, matchErr := rowMatchesConditions(t.columns, row, conditions, params)
+		matches, matchErr := matchesConditions(t.columns, row, conditions, params)
 		if matchErr != nil {
 			return 0, matchErr
 		}
@@ -262,47 +262,39 @@ type colParam struct {
 	paramIdx int
 }
 
-// parseSimpleSelect extracts table name and optional WHERE col = $N.
-// Only supports: SELECT ... FROM <table> [WHERE <col> = $N]
-func parseSimpleSelect(sql string) (table, whereCol string, whereParam int, err error) {
-	upper := strings.ToUpper(sql)
-	fromIdx := strings.Index(upper, " FROM ")
-	if fromIdx < 0 {
-		return "", "", 0, fmt.Errorf("parseSimpleSelect: no FROM in %q", sql)
-	}
-	rest := strings.TrimSpace(sql[fromIdx+6:])
-	whereIdx := strings.Index(strings.ToUpper(rest), " WHERE ")
-	if whereIdx < 0 {
-		return strings.Fields(rest)[0], "", 0, nil
-	}
-	table = strings.Fields(rest[:whereIdx])[0]
-	wherePart := strings.TrimSpace(rest[whereIdx+7:])
-	col, param, e := parseColParam(wherePart)
-	return table, col, param, e
+// condition is a single WHERE-clause predicate: either "<col> = $N" or
+// "<col> IS [NOT] NULL". Shared by SELECT, UPDATE, and DELETE so a multi-part
+// WHERE (e.g. "id = $1 AND project_id = $2 AND deleted_at IS NULL") is
+// evaluated in full instead of silently checking only its first clause.
+type condition struct {
+	column    string
+	paramIdx  int // 1-based index into params; 0 for isNull/isNotNull conditions.
+	isNull    bool
+	isNotNull bool
 }
 
-// parseSimpleWhere extracts table name and WHERE condition for DELETE.
-func parseSimpleWhere(sql string) (tableName, whereCol string, whereParam int, err error) {
+// parseTableAndConditions extracts the table name and WHERE conditions from a
+// "... FROM <table> [WHERE <cond> [AND <cond> ...]]" statement — the shape
+// shared by SELECT and DELETE FROM.
+func parseTableAndConditions(sql string) (table string, conditions []condition, err error) {
 	upper := strings.ToUpper(sql)
-	// DELETE FROM <table> WHERE <col> = $N
 	fromIdx := strings.Index(upper, " FROM ")
 	if fromIdx < 0 {
-		return "", "", 0, fmt.Errorf("parseSimpleWhere: no FROM in %q", sql)
+		return "", nil, fmt.Errorf("parseTableAndConditions: no FROM in %q", sql)
 	}
 	rest := strings.TrimSpace(sql[fromIdx+6:])
 	whereIdx := strings.Index(strings.ToUpper(rest), " WHERE ")
 	if whereIdx < 0 {
-		return strings.Fields(rest)[0], "", 0, nil
+		return strings.Fields(rest)[0], nil, nil
 	}
-	tableName = strings.Fields(rest[:whereIdx])[0]
-	wherePart := strings.TrimSpace(rest[whereIdx+7:])
-	col, wp, e := parseColParam(wherePart)
-	return tableName, col, wp, e
+	table = strings.Fields(rest[:whereIdx])[0]
+	conditions, err = parseConditions(strings.TrimSpace(rest[whereIdx+7:]))
+	return table, conditions, err
 }
 
 // parseSimpleUpdate extracts the table name, SET assignments, and WHERE conditions.
-// Only supports: UPDATE <table> SET <col> = $N[, <col> = $N ...] WHERE <col> = $N [AND <col> = $N ...]
-func parseSimpleUpdate(sql string) (tableName string, assignments []colParam, conditions []colParam, err error) {
+// Only supports: UPDATE <table> SET <col> = $N[, <col> = $N ...] WHERE <cond> [AND <cond> ...]
+func parseSimpleUpdate(sql string) (tableName string, assignments []colParam, conditions []condition, err error) {
 	trimmed := strings.TrimSpace(sql)
 	upper := strings.ToUpper(trimmed)
 	if !strings.HasPrefix(upper, "UPDATE ") {
@@ -343,27 +335,58 @@ func parseAssignments(s string) ([]colParam, error) {
 	return assignments, nil
 }
 
-func parseConditions(s string) ([]colParam, error) {
+// parseConditions splits a WHERE clause body on "AND" and parses each part as
+// either "<col> = $N" or "<col> IS [NOT] NULL".
+func parseConditions(s string) ([]condition, error) {
 	parts := strings.Split(s, "AND")
-	conditions := make([]colParam, 0, len(parts))
+	conditions := make([]condition, 0, len(parts))
 	for _, part := range parts {
-		col, paramIdx, err := parseColParam(strings.TrimSpace(part))
+		c, err := parseCondition(strings.TrimSpace(part))
 		if err != nil {
 			return nil, err
 		}
-		conditions = append(conditions, colParam{column: col, paramIdx: paramIdx})
+		conditions = append(conditions, c)
 	}
 	return conditions, nil
 }
 
-func rowMatchesConditions(columns []string, row []any, conditions []colParam, params []any) (bool, error) {
+func parseCondition(s string) (condition, error) {
+	fields := strings.Fields(s)
+	if len(fields) == 3 && strings.EqualFold(fields[1], "IS") && strings.EqualFold(fields[2], "NULL") {
+		return condition{column: fields[0], isNull: true}, nil
+	}
+	if len(fields) == 4 && strings.EqualFold(fields[1], "IS") && strings.EqualFold(fields[2], "NOT") && strings.EqualFold(fields[3], "NULL") {
+		return condition{column: fields[0], isNotNull: true}, nil
+	}
+	col, paramIdx, err := parseColParam(s)
+	if err != nil {
+		return condition{}, err
+	}
+	return condition{column: col, paramIdx: paramIdx}, nil
+}
+
+// matchesConditions reports whether row satisfies every condition (vacuously
+// true when conditions is empty, i.e. no WHERE clause at all).
+func matchesConditions(columns []string, row []any, conditions []condition, params []any) (bool, error) {
 	for _, condition := range conditions {
 		colIdx := colIndex(columns, condition.column)
 		if colIdx < 0 || colIdx >= len(row) {
-			return false, fmt.Errorf("rowMatchesConditions: column %q not found", condition.column)
+			return false, fmt.Errorf("matchesConditions: column %q not found", condition.column)
+		}
+		if condition.isNull {
+			if row[colIdx] != nil {
+				return false, nil
+			}
+			continue
+		}
+		if condition.isNotNull {
+			if row[colIdx] == nil {
+				return false, nil
+			}
+			continue
 		}
 		if condition.paramIdx <= 0 || condition.paramIdx > len(params) {
-			return false, fmt.Errorf("rowMatchesConditions: param index %d out of range", condition.paramIdx)
+			return false, fmt.Errorf("matchesConditions: param index %d out of range", condition.paramIdx)
 		}
 		if fmt.Sprint(row[colIdx]) != fmt.Sprint(params[condition.paramIdx-1]) {
 			return false, nil
@@ -558,4 +581,41 @@ func (c *InMemoryConfig) Get(key string) (string, bool) {
 	defer c.mu.Unlock()
 	v, ok := c.data[key]
 	return v, ok
+}
+
+// ── FakePermissions ───────────────────────────────────────────────────────────
+
+// FakePermissions is an in-memory plugin.PermissionBackend for tests. All
+// permissions are denied by default; call Grant to simulate a caller who
+// holds a given permission (typically a plugin-declared custom permission,
+// e.g. "time_logging.manage_all").
+type FakePermissions struct {
+	mu      sync.Mutex
+	granted map[string]bool
+}
+
+func newFakePermissions() *FakePermissions {
+	return &FakePermissions{granted: make(map[string]bool)}
+}
+
+// Grant marks permission as held by the current caller for the rest of the test.
+func (p *FakePermissions) Grant(permission string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.granted[permission] = true
+}
+
+// Revoke undoes a prior Grant, e.g. to assert on a permission being lost
+// partway through a test.
+func (p *FakePermissions) Revoke(permission string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.granted, permission)
+}
+
+// Check implements plugin.PermissionBackend.
+func (p *FakePermissions) Check(permission string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.granted[permission]
 }

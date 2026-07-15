@@ -88,3 +88,25 @@ type Config struct {
 
 // Get returns the value of a config key.  Returns ("", false) when not set.
 func (c *Config) Get(key string) (string, bool) { return c.backend.Get(key) }
+
+// ── Permissions ───────────────────────────────────────────────────────────────
+
+// PermissionBackend is the interface implemented by the WASM host runtime and
+// test stubs to check the current caller's effective permissions.
+type PermissionBackend interface {
+	Check(permission string) bool
+}
+
+// Permissions checks the current caller's effective permissions: the same
+// built-in permissions, legacy role permissions, and plugin-declared custom
+// permissions evaluated by the requirePermissions route middleware, plus any
+// custom permission granted to the caller's project/global role. Use it from
+// route handlers to enforce authorization finer-grained than the single
+// all-or-nothing scope declared on the route's manifest entry — e.g. "is the
+// caller the record's owner OR do they hold time_logging.manage_all".
+type Permissions struct {
+	backend PermissionBackend
+}
+
+// Check reports whether the current caller holds the given permission key.
+func (p *Permissions) Check(permission string) bool { return p.backend.Check(permission) }

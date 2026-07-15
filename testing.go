@@ -5,8 +5,8 @@ package plugin
 //
 // Production code should use [Run], which installs the WASM host-function
 // backends automatically.  This function is safe to call from any build target.
-func NewContextForTest(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend) *Context {
-	return newContext(db, kv, log, cfg)
+func NewContextForTest(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend, perm PermissionBackend) *Context {
+	return newContext(db, kv, log, cfg, perm)
 }
 
 // DispatchRoute calls the handler registered at method+path in ctx and writes

@@ -44,6 +44,9 @@ type Context struct {
 	Log *CapturingLogger
 	// Config is an in-memory config store.
 	Config *InMemoryConfig
+	// Permissions controls which permissions plugin.Context.Permissions().Check
+	// reports as held by the caller. All permissions are denied by default.
+	Permissions *FakePermissions
 
 	pluginCtx *plugin.Context
 	// routes registered by Plugin.Init (via the plugin.Context)
@@ -59,18 +62,20 @@ func NewContext(t testing.TB) *Context {
 	kv := newInMemoryKV()
 	log := newCapturingLogger()
 	cfg := newInMemoryConfig()
+	perm := newFakePermissions()
 
-	pCtx := plugin.NewContextForTest(db, kv, log, cfg)
+	pCtx := plugin.NewContextForTest(db, kv, log, cfg, perm)
 	d := &testDispatcher{pluginCtx: pCtx}
 
 	tc := &Context{
-		DB:         db,
-		KV:         kv,
-		Log:        log,
-		Config:     cfg,
-		pluginCtx:  pCtx,
-		dispatcher: d,
-		t:          t,
+		DB:          db,
+		KV:          kv,
+		Log:         log,
+		Config:      cfg,
+		Permissions: perm,
+		pluginCtx:   pCtx,
+		dispatcher:  d,
+		t:           t,
 	}
 	t.Cleanup(func() { _ = tc })
 	return tc

@@ -168,6 +168,20 @@ func (b *wasmConfigBackend) Get(key string) (string, bool) {
 	return string(wasmSlice(valPtr, valLen)), true
 }
 
+// ── WASM Permission backend ───────────────────────────────────────────────────
+
+type wasmPermissionBackend struct{}
+
+func newWASMPermissionBackend() PermissionBackend { return &wasmPermissionBackend{} }
+
+func (b *wasmPermissionBackend) Check(permission string) bool {
+	permBytes := []byte(permission)
+	if len(permBytes) == 0 {
+		return false
+	}
+	return hostPermissionCheck(int64(ptrOf(permBytes)), int64(len(permBytes))) != 0
+}
+
 // ── EmitEvent ─────────────────────────────────────────────────────────────────
 
 // EmitEvent publishes an event to the paca event bus from WASM.

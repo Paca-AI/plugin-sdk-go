@@ -25,6 +25,7 @@ func (d *dispatcher) init() error {
 		newWASMKVBackend(),
 		newWASMLogBackend(),
 		newWASMConfigBackend(),
+		newWASMPermissionBackend(),
 	)
 	if err := d.plugin.Init(d.ctx); err != nil {
 		return err
