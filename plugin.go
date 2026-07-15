@@ -12,6 +12,7 @@ type Plugin interface {
 }
 
 // globalDispatcher is the singleton created by [Run].
+//
 //nolint:unused // used by wasm_exports.go in WASM builds
 var globalDispatcher *dispatcher
 

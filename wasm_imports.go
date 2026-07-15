@@ -66,3 +66,9 @@ func hostActivityRecord(payloadPtr, payloadLen int64) int32
 //go:wasmimport paca config_get
 //go:noescape
 func hostConfigGet(keyPtr, keyLen, valuePtrPtr, valueLenPtr int64)
+
+// paca.permission_check(permissionPtr i64, permissionLen i64) -> ok i32
+//
+//go:wasmimport paca permission_check
+//go:noescape
+func hostPermissionCheck(permissionPtr, permissionLen int64) int32

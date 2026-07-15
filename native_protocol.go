@@ -6,6 +6,7 @@ import "encoding/json"
 
 // hostResponse mirrors the shape expected by the paca API host runtime when
 // deserialising the HandleRequest return value.
+//
 //nolint:unused // used by dispatch.go in native builds
 type hostResponse struct {
 	Status  int               `json:"status"`

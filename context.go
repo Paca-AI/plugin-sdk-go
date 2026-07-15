@@ -12,6 +12,7 @@ type Context struct {
 	kv     *KV
 	log    *Logger
 	cfg    *Config
+	perm   *Permissions
 }
 
 // routeKey uniquely identifies a registered route by HTTP method + path.
@@ -51,6 +52,10 @@ func (c *Context) Log() *Logger { return c.log }
 // Config returns a read-only helper for plugin configuration values.
 func (c *Context) Config() *Config { return c.cfg }
 
+// Permissions returns a helper for checking the current caller's effective
+// permissions, including any custom permission the plugin declared.
+func (c *Context) Permissions() *Permissions { return c.perm }
+
 // RouteHandler is the function signature for HTTP route handlers.
 type RouteHandler func(req *Request, res *Response)
 
@@ -60,7 +65,7 @@ type EventHandler func(evt *Event)
 // newContext constructs a Context backed by the provided implementations.
 // Called by the WASM runtime (with host-function backends) and by
 // [plugintest] (with in-memory backends).
-func newContext(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend) *Context {
+func newContext(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend, perm PermissionBackend) *Context {
 	return &Context{
 		routes: make(map[routeKey]RouteHandler),
 		events: make(map[string]EventHandler),
@@ -68,6 +73,7 @@ func newContext(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend) *
 		kv:     &KV{backend: kv},
 		log:    &Logger{backend: log},
 		cfg:    &Config{backend: cfg},
+		perm:   &Permissions{backend: perm},
 	}
 }
 
