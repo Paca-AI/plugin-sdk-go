@@ -15,9 +15,20 @@ func hostLog(level int32, ptr, length int64)
 
 // paca.db_query(sqlPtr i64, sqlLen i64, paramsPtr i64, paramsLen i64, resultPtrPtr i64, resultLenPtr i64)
 //
+// Deprecated: has no error channel, so a query that fails to execute is
+// indistinguishable from one that succeeded with zero rows. Use
+// hostDBQuery2. Kept only so already-compiled plugin binaries that still
+// import this signature keep working against newer hosts.
+//
 //go:wasmimport paca db_query
 //go:noescape
 func hostDBQuery(sqlPtr, sqlLen, paramsPtr, paramsLen, resultPtrPtr, resultLenPtr int64)
+
+// paca.db_query2(sqlPtr i64, sqlLen i64, paramsPtr i64, paramsLen i64, resultPtrPtr i64, resultLenPtr i64, errPtrPtr i64, errLenPtr i64)
+//
+//go:wasmimport paca db_query2
+//go:noescape
+func hostDBQuery2(sqlPtr, sqlLen, paramsPtr, paramsLen, resultPtrPtr, resultLenPtr, errPtrPtr, errLenPtr int64)
 
 // paca.db_exec(sqlPtr i64, sqlLen i64, paramsPtr i64, paramsLen i64, rowsAffectedPtr i64, errPtrPtr i64, errLenPtr i64)
 //
