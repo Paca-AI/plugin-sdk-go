@@ -77,6 +77,14 @@ func newContext(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend, p
 	}
 }
 
+// matchRoute finds the registered route for method+path. When more than one
+// registered pattern matches the same incoming path — e.g. a plugin
+// registers both "/views/:viewId/panels/:panelId" and
+// "/views/:viewId/panels/layout" under the same method, and the request is
+// for ".../panels/layout" — the most specific pattern wins (the one with
+// fewer ":param" segments), so a literal segment like "layout" always beats
+// a same-position ":panelId" wildcard. Without this, Go's randomized map
+// iteration order would make the match nondeterministic across calls.
 func (c *Context) matchRoute(method, path string) (RouteHandler, map[string]string, bool) {
 	method = strings.ToUpper(method)
 	if handler, ok := c.routes[routeKey{method, path}]; ok {
@@ -85,22 +93,60 @@ func (c *Context) matchRoute(method, path string) (RouteHandler, map[string]stri
 
 	projectID, relativePath, hasProjectScope := splitProjectPath(path)
 
+	var (
+		bestHandler     RouteHandler
+		bestParams      map[string]string
+		bestSpecificity = -1
+		found           bool
+	)
+	consider := func(pattern string, handler RouteHandler, tryPath string, withProjectID bool) {
+		params, ok := matchRoutePattern(pattern, tryPath)
+		if !ok {
+			return
+		}
+		specificity := routeSpecificity(pattern)
+		if specificity <= bestSpecificity {
+			return
+		}
+		if withProjectID {
+			params["projectId"] = projectID
+		}
+		bestHandler, bestParams, bestSpecificity, found = handler, params, specificity, true
+	}
+
 	for key, handler := range c.routes {
 		if key.method != method {
 			continue
 		}
-		if params, ok := matchRoutePattern(key.path, path); ok {
-			return handler, params, true
-		}
+		consider(key.path, handler, path, false)
 		if hasProjectScope {
-			if params, ok := matchRoutePattern(key.path, relativePath); ok {
-				params["projectId"] = projectID
-				return handler, params, true
-			}
+			consider(key.path, handler, relativePath, true)
 		}
 	}
 
-	return nil, nil, false
+	return bestHandler, bestParams, found
+}
+
+// routeSpecificity counts a pattern's literal (non-":param") segments —
+// used to break ties when multiple registered patterns match the same
+// incoming path. Any leading "/projects/:projectId" scope prefix is
+// stripped first, so a fully-qualified pattern like
+// "/projects/:projectId/tasks/:taskId" and its relative-style equivalent
+// "/tasks/:taskId" (matched via splitProjectPath's implicit projectId
+// injection) score the same — spelling the prefix out explicitly is a
+// registration-style choice, not extra genuine specificity.
+func routeSpecificity(pattern string) int {
+	segments := splitPathSegments(pattern)
+	if len(segments) >= 2 && segments[0] == "projects" && strings.HasPrefix(segments[1], ":") {
+		segments = segments[2:]
+	}
+	n := 0
+	for _, seg := range segments {
+		if !strings.HasPrefix(seg, ":") {
+			n++
+		}
+	}
+	return n
 }
 
 func splitProjectPath(path string) (projectID, relativePath string, ok bool) {
