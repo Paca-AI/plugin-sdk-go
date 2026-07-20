@@ -49,3 +49,37 @@ func TestMatchRoute_PrefersLiteralSegmentOverWildcard(t *testing.T) {
 		t.Fatalf("expected panelId param %q, got %q", "panel-123", params["panelId"])
 	}
 }
+
+// Regression test for routeSpecificity treating the "/projects/:projectId"
+// scope prefix as extra specificity. A fully-qualified pattern that spells
+// the prefix out ("/projects/:projectId/tasks/:taskId") has 2 raw literal
+// segments ("projects", "tasks"), while a relative-style literal pattern
+// matched via splitProjectPath's implicit projectId injection
+// ("/tasks/summary") also has 2 ("tasks", "summary") — but is the genuinely
+// more specific match for a request path ending in ".../tasks/summary".
+// Before stripping the prefix, both scored 2 and the winner depended on map
+// iteration order; after stripping, the wildcard pattern scores 1 and the
+// literal one correctly and deterministically wins.
+func TestMatchRoute_PrefersLiteralOverWildcardAcrossRegistrationStyles(t *testing.T) {
+	ctx := newContext(newWASMDBBackend(), newWASMKVBackend(), newWASMLogBackend(), newWASMConfigBackend(), newWASMPermissionBackend())
+
+	var gotWildcard, gotLiteral bool
+	ctx.Route("GET", "/projects/:projectId/tasks/:taskId", func(_ *Request, _ *Response) {
+		gotWildcard = true
+	})
+	ctx.Route("GET", "/tasks/summary", func(_ *Request, _ *Response) {
+		gotLiteral = true
+	})
+
+	for i := 0; i < 50; i++ {
+		gotWildcard, gotLiteral = false, false
+		handler, _, ok := ctx.matchRoute("GET", "/projects/proj-1/tasks/summary")
+		if !ok {
+			t.Fatalf("iteration %d: expected a route match, got none", i)
+		}
+		handler(nil, nil)
+		if !gotLiteral || gotWildcard {
+			t.Fatalf("iteration %d: expected the literal /tasks/summary route to win, got wildcard route instead", i)
+		}
+	}
+}

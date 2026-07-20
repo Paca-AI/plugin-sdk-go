@@ -58,6 +58,26 @@ jobs:
       - name: Verify module compiles
         run: go build ./...
 
+  build-wasm:
+    name: Build (wasip1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Verify module compiles for the wasip1 plugin target
+        run: GOOS=wasip1 GOARCH=wasm go build ./...
+
   test:
     name: Test
     runs-on: ubuntu-latest

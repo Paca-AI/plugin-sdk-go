@@ -70,10 +70,7 @@ func (b *wasmDBBackend) Query(sql string, params []any) (*DBQueryResult, error) 
 		int64(ptrOf(outputBuf)), int64(ptrOf(outputBuf[4:])),
 		int64(ptrOf(outputBuf[8:])), int64(ptrOf(outputBuf[12:])),
 	)
-	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
-	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
-	errPtr := int32(uint32(outputBuf[8]) | uint32(outputBuf[9])<<8 | uint32(outputBuf[10])<<16 | uint32(outputBuf[11])<<24)
-	errLen := int32(uint32(outputBuf[12]) | uint32(outputBuf[13])<<8 | uint32(outputBuf[14])<<16 | uint32(outputBuf[15])<<24)
+	resPtr, resLen, errPtr, errLen := decodeQuery2Output(outputBuf)
 	if errLen > 0 {
 		return nil, &hostError{string(wasmSlice(errPtr, errLen))}
 	}

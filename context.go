@@ -129,10 +129,19 @@ func (c *Context) matchRoute(method, path string) (RouteHandler, map[string]stri
 
 // routeSpecificity counts a pattern's literal (non-":param") segments —
 // used to break ties when multiple registered patterns match the same
-// incoming path.
+// incoming path. Any leading "/projects/:projectId" scope prefix is
+// stripped first, so a fully-qualified pattern like
+// "/projects/:projectId/tasks/:taskId" and its relative-style equivalent
+// "/tasks/:taskId" (matched via splitProjectPath's implicit projectId
+// injection) score the same — spelling the prefix out explicitly is a
+// registration-style choice, not extra genuine specificity.
 func routeSpecificity(pattern string) int {
+	segments := splitPathSegments(pattern)
+	if len(segments) >= 2 && segments[0] == "projects" && strings.HasPrefix(segments[1], ":") {
+		segments = segments[2:]
+	}
 	n := 0
-	for _, seg := range splitPathSegments(pattern) {
+	for _, seg := range segments {
 		if !strings.HasPrefix(seg, ":") {
 			n++
 		}
