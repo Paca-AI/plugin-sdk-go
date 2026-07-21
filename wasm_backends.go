@@ -5,6 +5,7 @@ package plugin
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"unsafe"
 )
 
@@ -138,6 +139,38 @@ func (b *wasmKVBackend) Set(key, value string) {
 func (b *wasmKVBackend) Delete(key string) {
 	keyBytes := []byte(key)
 	hostStorageDelete(int64(ptrOf(keyBytes)), int64(len(keyBytes)))
+}
+
+// ── WASM Cache backend ────────────────────────────────────────────────────────
+
+type wasmCacheBackend struct{}
+
+func newWASMCacheBackend() CacheBackend { return &wasmCacheBackend{} }
+
+func (b *wasmCacheBackend) Get(key string) (string, bool) {
+	keyBytes := []byte(key)
+	outputBuf := make([]byte, 8)
+	hostCacheGet(
+		int64(ptrOf(keyBytes)), int64(len(keyBytes)),
+		int64(ptrOf(outputBuf)), int64(ptrOf(outputBuf[4:])),
+	)
+	valPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
+	valLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
+	if valLen == 0 {
+		return "", false
+	}
+	return string(wasmSlice(valPtr, valLen)), true
+}
+
+func (b *wasmCacheBackend) Set(key, value string, ttl time.Duration) {
+	keyBytes := []byte(key)
+	valBytes := []byte(value)
+	hostCacheSet(int64(ptrOf(keyBytes)), int64(len(keyBytes)), int64(ptrOf(valBytes)), int64(len(valBytes)), ttlToSeconds(ttl))
+}
+
+func (b *wasmCacheBackend) Delete(key string) {
+	keyBytes := []byte(key)
+	hostCacheDelete(int64(ptrOf(keyBytes)), int64(len(keyBytes)))
 }
 
 // ── WASM log backend ──────────────────────────────────────────────────────────

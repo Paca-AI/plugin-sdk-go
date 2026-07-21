@@ -10,6 +10,7 @@ type Context struct {
 	events map[string]EventHandler
 	db     *DB
 	kv     *KV
+	cache  *Cache
 	log    *Logger
 	cfg    *Config
 	perm   *Permissions
@@ -46,6 +47,11 @@ func (c *Context) DB() *DB { return c.db }
 // KV returns a helper for simple key-value persistence.
 func (c *Context) KV() *KV { return c.kv }
 
+// Cache returns a helper for the plugin's TTL-based Valkey/Redis-backed
+// cache — use it for expensive-to-recompute data that can tolerate being
+// briefly stale, as opposed to KV's durable, non-expiring storage.
+func (c *Context) Cache() *Cache { return c.cache }
+
 // Log returns a structured logger.
 func (c *Context) Log() *Logger { return c.log }
 
@@ -65,12 +71,13 @@ type EventHandler func(evt *Event)
 // newContext constructs a Context backed by the provided implementations.
 // Called by the WASM runtime (with host-function backends) and by
 // [plugintest] (with in-memory backends).
-func newContext(db DBBackend, kv KVBackend, log LogBackend, cfg ConfigBackend, perm PermissionBackend) *Context {
+func newContext(db DBBackend, kv KVBackend, cache CacheBackend, log LogBackend, cfg ConfigBackend, perm PermissionBackend) *Context {
 	return &Context{
 		routes: make(map[routeKey]RouteHandler),
 		events: make(map[string]EventHandler),
 		db:     &DB{backend: db},
 		kv:     &KV{backend: kv},
+		cache:  &Cache{backend: cache},
 		log:    &Logger{backend: log},
 		cfg:    &Config{backend: cfg},
 		perm:   &Permissions{backend: perm},

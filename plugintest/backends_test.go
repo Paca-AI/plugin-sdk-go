@@ -1,6 +1,9 @@
 package plugintest
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // These tests cover InMemoryDB's WHERE-clause evaluation directly (SELECT,
 // UPDATE, DELETE), since a regression here silently produces false negatives
@@ -82,5 +85,52 @@ func TestInMemoryDB_Delete_DoesNotMatchOtherRowsSharingOneCondition(t *testing.T
 	remaining := db.AllRows("widgets")
 	if len(remaining) != 3 {
 		t.Fatalf("expected no rows deleted (id/owner mismatch), got %+v", remaining)
+	}
+}
+
+func TestInMemoryCache_GetMiss(t *testing.T) {
+	c := newInMemoryCache()
+	if _, ok := c.Get("missing"); ok {
+		t.Fatal("expected miss for a key that was never set")
+	}
+}
+
+func TestInMemoryCache_SetThenGet(t *testing.T) {
+	c := newInMemoryCache()
+	c.Set("k", "v", time.Minute)
+	got, ok := c.Get("k")
+	if !ok || got != "v" {
+		t.Fatalf("expected hit with value %q, got (%q, %v)", "v", got, ok)
+	}
+}
+
+func TestInMemoryCache_ZeroTTLNeverExpires(t *testing.T) {
+	c := newInMemoryCache()
+	c.Set("k", "v", 0)
+	c.Advance(24 * time.Hour)
+	if _, ok := c.Get("k"); !ok {
+		t.Fatal("expected a zero-TTL entry to survive any amount of elapsed time")
+	}
+}
+
+func TestInMemoryCache_ExpiresAfterTTL(t *testing.T) {
+	c := newInMemoryCache()
+	c.Set("k", "v", 5*time.Minute)
+	c.Advance(4 * time.Minute)
+	if _, ok := c.Get("k"); !ok {
+		t.Fatal("expected entry to still be present before its TTL elapses")
+	}
+	c.Advance(2 * time.Minute) // total 6m > 5m TTL
+	if _, ok := c.Get("k"); ok {
+		t.Fatal("expected entry to be gone after its TTL elapses")
+	}
+}
+
+func TestInMemoryCache_Delete(t *testing.T) {
+	c := newInMemoryCache()
+	c.Set("k", "v", time.Minute)
+	c.Delete("k")
+	if _, ok := c.Get("k"); ok {
+		t.Fatal("expected key to be gone after Delete")
 	}
 }

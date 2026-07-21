@@ -13,7 +13,7 @@ import "testing"
 // literal ":panelId" pattern string as the path, so it never exercised this
 // branch — this test calls matchRoute with a real resolved path instead.
 func TestMatchRoute_PrefersLiteralSegmentOverWildcard(t *testing.T) {
-	ctx := newContext(newWASMDBBackend(), newWASMKVBackend(), newWASMLogBackend(), newWASMConfigBackend(), newWASMPermissionBackend())
+	ctx := newContext(newWASMDBBackend(), newWASMKVBackend(), newWASMCacheBackend(), newWASMLogBackend(), newWASMConfigBackend(), newWASMPermissionBackend())
 
 	var gotByPanelID, gotLayout bool
 	ctx.Route("PATCH", "/views/:viewId/panels/:panelId", func(_ *Request, _ *Response) {
@@ -61,7 +61,7 @@ func TestMatchRoute_PrefersLiteralSegmentOverWildcard(t *testing.T) {
 // iteration order; after stripping, the wildcard pattern scores 1 and the
 // literal one correctly and deterministically wins.
 func TestMatchRoute_PrefersLiteralOverWildcardAcrossRegistrationStyles(t *testing.T) {
-	ctx := newContext(newWASMDBBackend(), newWASMKVBackend(), newWASMLogBackend(), newWASMConfigBackend(), newWASMPermissionBackend())
+	ctx := newContext(newWASMDBBackend(), newWASMKVBackend(), newWASMCacheBackend(), newWASMLogBackend(), newWASMConfigBackend(), newWASMPermissionBackend())
 
 	var gotWildcard, gotLiteral bool
 	ctx.Route("GET", "/projects/:projectId/tasks/:taskId", func(_ *Request, _ *Response) {

@@ -23,6 +23,7 @@ func (d *dispatcher) init() error {
 	d.ctx = newContext(
 		newWASMDBBackend(),
 		newWASMKVBackend(),
+		newWASMCacheBackend(),
 		newWASMLogBackend(),
 		newWASMConfigBackend(),
 		newWASMPermissionBackend(),

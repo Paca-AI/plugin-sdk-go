@@ -54,6 +54,24 @@ func hostStorageSet(keyPtr, keyLen, valuePtr, valueLen int64) int32
 //go:noescape
 func hostStorageDelete(keyPtr, keyLen int64) int32
 
+// paca.cache_get(keyPtr i64, keyLen i64, valuePtrPtr i64, valueLenPtr i64)
+//
+//go:wasmimport paca cache_get
+//go:noescape
+func hostCacheGet(keyPtr, keyLen, valuePtrPtr, valueLenPtr int64)
+
+// paca.cache_set(keyPtr i64, keyLen i64, valuePtr i64, valueLen i64, ttlSeconds i32) -> ok i32
+//
+//go:wasmimport paca cache_set
+//go:noescape
+func hostCacheSet(keyPtr, keyLen, valuePtr, valueLen int64, ttlSeconds int32) int32
+
+// paca.cache_delete(keyPtr i64, keyLen i64) -> ok i32
+//
+//go:wasmimport paca cache_delete
+//go:noescape
+func hostCacheDelete(keyPtr, keyLen int64) int32
+
 // paca.event_emit(topicPtr i64, topicLen i64, payloadPtr i64, payloadLen i64) -> ok i32
 //
 //go:wasmimport paca event_emit

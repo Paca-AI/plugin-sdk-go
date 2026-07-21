@@ -40,6 +40,8 @@ type Context struct {
 	DB *InMemoryDB
 	// KV is the in-memory key-value store.
 	KV *InMemoryKV
+	// Cache is the in-memory TTL cache store.
+	Cache *InMemoryCache
 	// Log captures log messages emitted by the plugin.
 	Log *CapturingLogger
 	// Config is an in-memory config store.
@@ -60,16 +62,18 @@ func NewContext(t testing.TB) *Context {
 	t.Helper()
 	db := newInMemoryDB()
 	kv := newInMemoryKV()
+	cache := newInMemoryCache()
 	log := newCapturingLogger()
 	cfg := newInMemoryConfig()
 	perm := newFakePermissions()
 
-	pCtx := plugin.NewContextForTest(db, kv, log, cfg, perm)
+	pCtx := plugin.NewContextForTest(db, kv, cache, log, cfg, perm)
 	d := &testDispatcher{pluginCtx: pCtx}
 
 	tc := &Context{
 		DB:          db,
 		KV:          kv,
+		Cache:       cache,
 		Log:         log,
 		Config:      cfg,
 		Permissions: perm,

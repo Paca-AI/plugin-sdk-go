@@ -74,7 +74,8 @@ GOARCH=wasm GOOS=wasip1 go build -o plugin.wasm main.go
 ### `Context`
 The bridge between your plugin and the Paca host. Available via `Init(ctx)`:
 - `ctx.DB()` — access the scoped database (PostgreSQL)
-- `ctx.KV()` — access the plugin-private key-value store (JSONB)
+- `ctx.KV()` — access the plugin-private key-value store (JSONB), durable with no expiry
+- `ctx.Cache()` — access the plugin's TTL-based cache (Valkey/Redis), for derived data that can tolerate being briefly stale
 - `ctx.Log()` — write structured logs to the host
 - `ctx.Config()` — read plugin configuration and secrets
 - `ctx.Route(method, path, handler)` — register an HTTP endpoint

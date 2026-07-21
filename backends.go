@@ -1,5 +1,7 @@
 package plugin
 
+import "time"
+
 // ── DB ────────────────────────────────────────────────────────────────────────
 
 // DBBackend is the interface implemented by the WASM host runtime and test
@@ -55,6 +57,49 @@ func (k *KV) Set(key, value string) { k.backend.Set(key, value) }
 
 // Delete removes key from the store.
 func (k *KV) Delete(key string) { k.backend.Delete(key) }
+
+// ── Cache ─────────────────────────────────────────────────────────────────────
+
+// CacheBackend is the interface implemented by the WASM host runtime and test
+// stubs for the plugin's Valkey/Redis-backed cache.
+type CacheBackend interface {
+	Get(key string) (string, bool)
+	Set(key, value string, ttl time.Duration)
+	Delete(key string)
+}
+
+// Cache is a string key-value store backed by the host's shared Valkey/Redis
+// instance, namespaced per plugin so different plugins' keys never collide.
+// Unlike KV (backed by Postgres, durable, no expiry), entries here expire
+// after their TTL — use it for derived/recomputable data (e.g. expensive
+// query results) rather than authoritative state.
+type Cache struct {
+	backend CacheBackend
+}
+
+// Get retrieves the value for key. Returns ("", false) on a cache miss,
+// including when the entry has expired.
+func (c *Cache) Get(key string) (string, bool) { return c.backend.Get(key) }
+
+// Set stores value under key for the given TTL. A zero TTL stores the value
+// without expiry.
+func (c *Cache) Set(key, value string, ttl time.Duration) { c.backend.Set(key, value, ttl) }
+
+// Delete removes key from the cache.
+func (c *Cache) Delete(key string) { c.backend.Delete(key) }
+
+// ttlToSeconds converts ttl to whole seconds for backends (such as the WASM
+// host cache_set import) that only accept second-granularity TTLs. It rounds
+// up rather than truncating, so any positive sub-second ttl still maps to a
+// positive number of seconds instead of silently becoming 0 — which the host
+// treats as "store without expiry", turning a short-lived cache entry into a
+// permanent one. Non-positive durations map to 0.
+func ttlToSeconds(ttl time.Duration) int32 {
+	if ttl <= 0 {
+		return 0
+	}
+	return int32((ttl + time.Second - 1) / time.Second)
+}
 
 // ── Logger ────────────────────────────────────────────────────────────────────
 

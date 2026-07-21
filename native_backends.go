@@ -2,13 +2,17 @@
 
 // Package plugin — stub backends for non-WASM builds.
 //
-// These stubs satisfy the DBBackend/KVBackend/LogBackend/ConfigBackend
-// interfaces and the EmitEvent function when compiling for native platforms
-// (e.g. go test, go vet).  They are intentionally no-ops / error-returners
-// so that tests must inject real implementations via plugintest.NewContext().
+// These stubs satisfy the DBBackend/KVBackend/CacheBackend/LogBackend/
+// ConfigBackend interfaces and the EmitEvent function when compiling for
+// native platforms (e.g. go test, go vet).  They are intentionally no-ops /
+// error-returners so that tests must inject real implementations via
+// plugintest.NewContext().
 package plugin
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var errNotWASM = errors.New("plugin: this function is only available in a WASM module")
 
@@ -16,6 +20,7 @@ var errNotWASM = errors.New("plugin: this function is only available in a WASM m
 
 func newWASMDBBackend() DBBackend                 { return &stubDBBackend{} }
 func newWASMKVBackend() KVBackend                 { return &stubKVBackend{} }
+func newWASMCacheBackend() CacheBackend           { return &stubCacheBackend{} }
 func newWASMLogBackend() LogBackend               { return &stubLogBackend{} }
 func newWASMConfigBackend() ConfigBackend         { return &stubConfigBackend{} }
 func newWASMPermissionBackend() PermissionBackend { return &stubPermissionBackend{} }
@@ -34,6 +39,12 @@ type stubKVBackend struct{}
 func (b *stubKVBackend) Get(_ string) (string, bool) { return "", false }
 func (b *stubKVBackend) Set(_, _ string)             {}
 func (b *stubKVBackend) Delete(_ string)             {}
+
+type stubCacheBackend struct{}
+
+func (b *stubCacheBackend) Get(_ string) (string, bool)      { return "", false }
+func (b *stubCacheBackend) Set(_, _ string, _ time.Duration) {}
+func (b *stubCacheBackend) Delete(_ string)                  {}
 
 type stubLogBackend struct{}
 
