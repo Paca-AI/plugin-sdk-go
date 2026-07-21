@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
 )
@@ -512,6 +513,68 @@ func (k *InMemoryKV) Delete(key string) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	delete(k.data, key)
+}
+
+// ── InMemoryCache ─────────────────────────────────────────────────────────────
+
+// InMemoryCache is a map-backed plugin.CacheBackend for tests, simulating
+// TTL expiry against a fake clock instead of a real Valkey/Redis instance.
+type InMemoryCache struct {
+	mu   sync.Mutex
+	data map[string]cacheEntry
+	now  func() time.Time
+}
+
+type cacheEntry struct {
+	value    string
+	expireAt time.Time // zero means no expiry
+}
+
+func newInMemoryCache() *InMemoryCache {
+	return &InMemoryCache{data: make(map[string]cacheEntry), now: time.Now}
+}
+
+// Get implements plugin.CacheBackend. Returns ("", false) on a miss or when
+// the entry's TTL has elapsed (per the fake clock set via Advance).
+func (c *InMemoryCache) Get(key string) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry, ok := c.data[key]
+	if !ok {
+		return "", false
+	}
+	if !entry.expireAt.IsZero() && !c.now().Before(entry.expireAt) {
+		delete(c.data, key)
+		return "", false
+	}
+	return entry.value, true
+}
+
+// Set implements plugin.CacheBackend. A zero ttl stores the value without expiry.
+func (c *InMemoryCache) Set(key, value string, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var expireAt time.Time
+	if ttl > 0 {
+		expireAt = c.now().Add(ttl)
+	}
+	c.data[key] = cacheEntry{value: value, expireAt: expireAt}
+}
+
+// Delete implements plugin.CacheBackend.
+func (c *InMemoryCache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.data, key)
+}
+
+// Advance moves the fake clock forward by d, so tests can assert that an
+// entry expires after its TTL without a real sleep.
+func (c *InMemoryCache) Advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	base := c.now()
+	c.now = func() time.Time { return base.Add(d) }
 }
 
 // ── CapturingLogger ───────────────────────────────────────────────────────────

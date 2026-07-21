@@ -1,5 +1,7 @@
 package plugin
 
+import "time"
+
 // ── DB ────────────────────────────────────────────────────────────────────────
 
 // DBBackend is the interface implemented by the WASM host runtime and test
@@ -55,6 +57,36 @@ func (k *KV) Set(key, value string) { k.backend.Set(key, value) }
 
 // Delete removes key from the store.
 func (k *KV) Delete(key string) { k.backend.Delete(key) }
+
+// ── Cache ─────────────────────────────────────────────────────────────────────
+
+// CacheBackend is the interface implemented by the WASM host runtime and test
+// stubs for the plugin's Valkey/Redis-backed cache.
+type CacheBackend interface {
+	Get(key string) (string, bool)
+	Set(key, value string, ttl time.Duration)
+	Delete(key string)
+}
+
+// Cache is a string key-value store backed by the host's shared Valkey/Redis
+// instance, namespaced per plugin so different plugins' keys never collide.
+// Unlike KV (backed by Postgres, durable, no expiry), entries here expire
+// after their TTL — use it for derived/recomputable data (e.g. expensive
+// query results) rather than authoritative state.
+type Cache struct {
+	backend CacheBackend
+}
+
+// Get retrieves the value for key. Returns ("", false) on a cache miss,
+// including when the entry has expired.
+func (c *Cache) Get(key string) (string, bool) { return c.backend.Get(key) }
+
+// Set stores value under key for the given TTL. A zero TTL stores the value
+// without expiry.
+func (c *Cache) Set(key, value string, ttl time.Duration) { c.backend.Set(key, value, ttl) }
+
+// Delete removes key from the cache.
+func (c *Cache) Delete(key string) { c.backend.Delete(key) }
 
 // ── Logger ────────────────────────────────────────────────────────────────────
 
