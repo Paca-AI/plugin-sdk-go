@@ -88,6 +88,19 @@ func (c *Cache) Set(key, value string, ttl time.Duration) { c.backend.Set(key, v
 // Delete removes key from the cache.
 func (c *Cache) Delete(key string) { c.backend.Delete(key) }
 
+// ttlToSeconds converts ttl to whole seconds for backends (such as the WASM
+// host cache_set import) that only accept second-granularity TTLs. It rounds
+// up rather than truncating, so any positive sub-second ttl still maps to a
+// positive number of seconds instead of silently becoming 0 — which the host
+// treats as "store without expiry", turning a short-lived cache entry into a
+// permanent one. Non-positive durations map to 0.
+func ttlToSeconds(ttl time.Duration) int32 {
+	if ttl <= 0 {
+		return 0
+	}
+	return int32((ttl + time.Second - 1) / time.Second)
+}
+
 // ── Logger ────────────────────────────────────────────────────────────────────
 
 // LogBackend is the interface used by [Logger] to emit log messages.

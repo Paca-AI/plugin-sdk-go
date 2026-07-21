@@ -165,11 +165,7 @@ func (b *wasmCacheBackend) Get(key string) (string, bool) {
 func (b *wasmCacheBackend) Set(key, value string, ttl time.Duration) {
 	keyBytes := []byte(key)
 	valBytes := []byte(value)
-	ttlSeconds := int32(ttl / time.Second)
-	if ttlSeconds < 0 {
-		ttlSeconds = 0
-	}
-	hostCacheSet(int64(ptrOf(keyBytes)), int64(len(keyBytes)), int64(ptrOf(valBytes)), int64(len(valBytes)), ttlSeconds)
+	hostCacheSet(int64(ptrOf(keyBytes)), int64(len(keyBytes)), int64(ptrOf(valBytes)), int64(len(valBytes)), ttlToSeconds(ttl))
 }
 
 func (b *wasmCacheBackend) Delete(key string) {
