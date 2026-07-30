@@ -95,6 +95,42 @@ func (c *Context) Call(method, path string, req Request) *plugin.Response {
 	return c.dispatcher.call(method, path, req)
 }
 
+// EvaluateCondition dispatches to the Condition handler registered for
+// nodeType (via [plugin.Context.Condition] in the plugin's Init) and
+// returns its result. It fails the test via t.Fatalf if no handler is
+// registered for nodeType.
+func (c *Context) EvaluateCondition(nodeType string, req ConditionRequest) plugin.ConditionResult {
+	c.t.Helper()
+	pluginReq := &plugin.ConditionRequest{
+		NodeType: nodeType,
+		Config:   req.Config,
+		Task:     req.Task,
+	}
+	result, ok := plugin.DispatchCondition(c.pluginCtx, pluginReq)
+	if !ok {
+		c.t.Fatalf("plugintest: no condition handler registered for node type %q", nodeType)
+	}
+	return result
+}
+
+// RunAction dispatches to the Action handler registered for nodeType (via
+// [plugin.Context.Action] in the plugin's Init) and returns its result. It
+// fails the test via t.Fatalf if no handler is registered for nodeType.
+func (c *Context) RunAction(nodeType string, req ActionRequest) plugin.ActionResult {
+	c.t.Helper()
+	pluginReq := &plugin.ActionRequest{
+		NodeType:       nodeType,
+		Config:         req.Config,
+		Task:           req.Task,
+		IdempotencyKey: req.IdempotencyKey,
+	}
+	result, ok := plugin.DispatchAction(c.pluginCtx, pluginReq)
+	if !ok {
+		c.t.Fatalf("plugintest: no action handler registered for node type %q", nodeType)
+	}
+	return result
+}
+
 // ── Request ───────────────────────────────────────────────────────────────────
 
 // Request represents a test HTTP request.
@@ -119,6 +155,46 @@ func (r Request) WithJSONBody(v any) Request {
 		r.Headers = make(map[string]string)
 	}
 	r.Headers["content-type"] = "application/json"
+	return r
+}
+
+// ── Condition / Action ───────────────────────────────────────────────────────
+
+// ConditionRequest represents a test automation Condition evaluation. Config
+// and Task are forwarded verbatim to the registered handler; the node type
+// is passed separately to [Context.EvaluateCondition].
+type ConditionRequest struct {
+	// Config is the node's raw JSON config, as it would come from the
+	// automation graph.
+	Config json.RawMessage
+	// Task is the task snapshot the handler receives alongside Config.
+	Task plugin.TaskSnapshot
+}
+
+// WithJSONConfig sets Config to the JSON-encoded form of v.
+func (r ConditionRequest) WithJSONConfig(v any) ConditionRequest {
+	data, _ := json.Marshal(v)
+	r.Config = data
+	return r
+}
+
+// ActionRequest represents a test automation Action execution. Config and
+// Task are forwarded verbatim to the registered handler; the node type is
+// passed separately to [Context.RunAction].
+type ActionRequest struct {
+	// Config is the node's raw JSON config, as it would come from the
+	// automation graph.
+	Config json.RawMessage
+	// Task is the task snapshot the handler receives alongside Config.
+	Task plugin.TaskSnapshot
+	// IdempotencyKey is the stable (run, node) key handed to the handler.
+	IdempotencyKey string
+}
+
+// WithJSONConfig sets Config to the JSON-encoded form of v.
+func (r ActionRequest) WithJSONConfig(v any) ActionRequest {
+	data, _ := json.Marshal(v)
+	r.Config = data
 	return r
 }
 

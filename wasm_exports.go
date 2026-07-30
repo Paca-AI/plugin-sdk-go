@@ -66,6 +66,47 @@ func ResetAllocator() {
 	wasmResetAllocator()
 }
 
+//go:wasmexport EvaluateCondition
+func EvaluateCondition(ptr, length int32) int64 {
+	if globalDispatcher == nil {
+		return 0
+	}
+	payload := wasmSlice(ptr, length)
+	result := globalDispatcher.evaluateCondition(payload)
+	return packWASMResult(result)
+}
+
+//go:wasmexport RunAction
+func RunAction(ptr, length int32) int64 {
+	if globalDispatcher == nil {
+		return 0
+	}
+	payload := wasmSlice(ptr, length)
+	result := globalDispatcher.runAction(payload)
+	return packWASMResult(result)
+}
+
+// packWASMResult allocates space in mallocBuffer for result, copies it in,
+// and returns the packed (ptr<<32)|len combined offset+length the host
+// expects — the same packing HandleRequest, EvaluateCondition, and RunAction
+// all use. NOTE: Host MUST copy out the response before calling
+// ResetAllocator, which is called after each export call completes.
+func packWASMResult(result []byte) int64 {
+	if len(result) == 0 {
+		return 0
+	}
+	outPtr := wasmMalloc(int32(len(result)))
+	if outPtr == 0 {
+		return 0
+	}
+	out := wasmSlice(outPtr, int32(len(result)))
+	if len(out) != len(result) {
+		return 0
+	}
+	copy(out, result)
+	return (int64(outPtr) << 32) | int64(len(result))
+}
+
 //go:wasmexport HandleEvent
 func HandleEvent(topicPtr, topicLen, payloadPtr, payloadLen int32) {
 	if globalDispatcher == nil {
