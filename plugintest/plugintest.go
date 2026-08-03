@@ -102,9 +102,10 @@ func (c *Context) Call(method, path string, req Request) *plugin.Response {
 func (c *Context) EvaluateCondition(nodeType string, req ConditionRequest) plugin.ConditionResult {
 	c.t.Helper()
 	pluginReq := &plugin.ConditionRequest{
-		NodeType: nodeType,
-		Config:   req.Config,
-		Task:     req.Task,
+		NodeType:  nodeType,
+		Config:    req.Config,
+		Task:      req.Task,
+		ProjectID: req.ProjectID,
 	}
 	result, ok := plugin.DispatchCondition(c.pluginCtx, pluginReq)
 	if !ok {
@@ -122,6 +123,7 @@ func (c *Context) RunAction(nodeType string, req ActionRequest) plugin.ActionRes
 		NodeType:       nodeType,
 		Config:         req.Config,
 		Task:           req.Task,
+		ProjectID:      req.ProjectID,
 		IdempotencyKey: req.IdempotencyKey,
 	}
 	result, ok := plugin.DispatchAction(c.pluginCtx, pluginReq)
@@ -169,6 +171,9 @@ type ConditionRequest struct {
 	Config json.RawMessage
 	// Task is the task snapshot the handler receives alongside Config.
 	Task plugin.TaskSnapshot
+	// ProjectID is the project the automation run belongs to, as the host
+	// would supply it (see plugin.ConditionRequest.ProjectID).
+	ProjectID string
 }
 
 // WithJSONConfig sets Config to the JSON-encoded form of v.
@@ -187,6 +192,9 @@ type ActionRequest struct {
 	Config json.RawMessage
 	// Task is the task snapshot the handler receives alongside Config.
 	Task plugin.TaskSnapshot
+	// ProjectID is the project the automation run belongs to, as the host
+	// would supply it (see plugin.ActionRequest.ProjectID).
+	ProjectID string
 	// IdempotencyKey is the stable (run, node) key handed to the handler.
 	IdempotencyKey string
 }
