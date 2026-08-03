@@ -41,29 +41,53 @@ func HandleRequest(ptr, length int32) int64 {
 	}
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.handleRequest(payload)
-	if len(result) == 0 {
-		return 0
-	}
-	// Allocate space in mallocBuffer for the response
-	outPtr := wasmMalloc(int32(len(result)))
-	if outPtr == 0 {
-		return 0
-	}
-	// Copy the result into allocated WASM memory.
-	out := wasmSlice(outPtr, int32(len(result)))
-	if len(out) != len(result) {
-		return 0
-	}
-	copy(out, result)
-	// Return offset and length combined into int64
-	// NOTE: Host MUST copy out the response before calling ResetAllocator,
-	// which is called after each HandleRequest completes.
-	return (int64(outPtr) << 32) | int64(len(result))
+	return packWASMResult(result)
 }
 
 //go:wasmexport ResetAllocator
 func ResetAllocator() {
 	wasmResetAllocator()
+}
+
+//go:wasmexport EvaluateCondition
+func EvaluateCondition(ptr, length int32) int64 {
+	if globalDispatcher == nil {
+		return 0
+	}
+	payload := wasmSlice(ptr, length)
+	result := globalDispatcher.evaluateCondition(payload)
+	return packWASMResult(result)
+}
+
+//go:wasmexport RunAction
+func RunAction(ptr, length int32) int64 {
+	if globalDispatcher == nil {
+		return 0
+	}
+	payload := wasmSlice(ptr, length)
+	result := globalDispatcher.runAction(payload)
+	return packWASMResult(result)
+}
+
+// packWASMResult allocates space in mallocBuffer for result, copies it in,
+// and returns the packed (ptr<<32)|len combined offset+length the host
+// expects — the same packing HandleRequest, EvaluateCondition, and RunAction
+// all use. NOTE: Host MUST copy out the response before calling
+// ResetAllocator, which is called after each export call completes.
+func packWASMResult(result []byte) int64 {
+	if len(result) == 0 {
+		return 0
+	}
+	outPtr := wasmMalloc(int32(len(result)))
+	if outPtr == 0 {
+		return 0
+	}
+	out := wasmSlice(outPtr, int32(len(result)))
+	if len(out) != len(result) {
+		return 0
+	}
+	copy(out, result)
+	return (int64(outPtr) << 32) | int64(len(result))
 }
 
 //go:wasmexport HandleEvent

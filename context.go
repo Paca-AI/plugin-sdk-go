@@ -2,18 +2,21 @@ package plugin
 
 import "strings"
 
-// Context is passed to [Plugin.Init] and used to register route handlers and
-// event subscriptions.  It also gives access to platform services such as the
-// database, key-value store, logger, and configuration.
+// Context is passed to [Plugin.Init] and used to register route handlers,
+// event subscriptions, and automation-graph node handlers.  It also gives
+// access to platform services such as the database, key-value store,
+// logger, and configuration.
 type Context struct {
-	routes map[routeKey]RouteHandler
-	events map[string]EventHandler
-	db     *DB
-	kv     *KV
-	cache  *Cache
-	log    *Logger
-	cfg    *Config
-	perm   *Permissions
+	routes     map[routeKey]RouteHandler
+	events     map[string]EventHandler
+	conditions map[string]ConditionHandler
+	actions    map[string]ActionHandler
+	db         *DB
+	kv         *KV
+	cache      *Cache
+	log        *Logger
+	cfg        *Config
+	perm       *Permissions
 }
 
 // routeKey uniquely identifies a registered route by HTTP method + path.
@@ -73,14 +76,16 @@ type EventHandler func(evt *Event)
 // [plugintest] (with in-memory backends).
 func newContext(db DBBackend, kv KVBackend, cache CacheBackend, log LogBackend, cfg ConfigBackend, perm PermissionBackend) *Context {
 	return &Context{
-		routes: make(map[routeKey]RouteHandler),
-		events: make(map[string]EventHandler),
-		db:     &DB{backend: db},
-		kv:     &KV{backend: kv},
-		cache:  &Cache{backend: cache},
-		log:    &Logger{backend: log},
-		cfg:    &Config{backend: cfg},
-		perm:   &Permissions{backend: perm},
+		routes:     make(map[routeKey]RouteHandler),
+		events:     make(map[string]EventHandler),
+		conditions: make(map[string]ConditionHandler),
+		actions:    make(map[string]ActionHandler),
+		db:         &DB{backend: db},
+		kv:         &KV{backend: kv},
+		cache:      &Cache{backend: cache},
+		log:        &Logger{backend: log},
+		cfg:        &Config{backend: cfg},
+		perm:       &Permissions{backend: perm},
 	}
 }
 

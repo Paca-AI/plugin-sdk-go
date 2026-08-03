@@ -45,3 +45,33 @@ func DispatchEvent(ctx *Context, topic string, payload []byte) bool {
 	handler(&Event{Topic: topic, Payload: payload})
 	return true
 }
+
+// DispatchCondition calls the Condition handler registered for nodeType in
+// ctx (via [Context.Condition]) and returns its result. Returns false (with
+// a zero-value ConditionResult) when no handler is registered for that
+// node type.
+//
+// Intended for use in plugin unit tests; production dispatch goes through
+// the WASM EvaluateCondition export.
+func DispatchCondition(ctx *Context, req *ConditionRequest) (ConditionResult, bool) {
+	handler, ok := ctx.conditions[req.NodeType]
+	if !ok {
+		return ConditionResult{}, false
+	}
+	return handler(req), true
+}
+
+// DispatchAction calls the Action handler registered for nodeType in ctx
+// (via [Context.Action]) and returns its result. Returns false (with a
+// zero-value ActionResult) when no handler is registered for that node
+// type.
+//
+// Intended for use in plugin unit tests; production dispatch goes through
+// the WASM RunAction export.
+func DispatchAction(ctx *Context, req *ActionRequest) (ActionResult, bool) {
+	handler, ok := ctx.actions[req.NodeType]
+	if !ok {
+		return ActionResult{}, false
+	}
+	return handler(req), true
+}
