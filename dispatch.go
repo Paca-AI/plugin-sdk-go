@@ -119,22 +119,26 @@ func (d *dispatcher) handleEvent(topic string, payload []byte) {
 // evaluateCondition deserialises the host's condition-evaluation payload
 // (node type + config + task snapshot) and dispatches it to the
 // plugin-contributed Condition handler registered for that node type via
-// [Context.Condition].
+// [Context.Condition]. Mirrors handleRequest's ordering: the payload is
+// parsed before the plugin is initialised, so a malformed payload fails
+// fast without paying for Init. Every failure path (bad payload, init
+// failure, unregistered node type) sets [ConditionResult.Error] so it can't
+// be mistaken for a handler legitimately evaluating to false.
 //
 //nolint:unused // used by wasm_exports.go in WASM builds
 func (d *dispatcher) evaluateCondition(payload []byte) []byte {
-	if err := d.init(); err != nil {
-		return marshalConditionResult(ConditionResult{Matched: false})
-	}
-
 	var req ConditionRequest
 	if err := unmarshalJSON(payload, &req); err != nil {
-		return marshalConditionResult(ConditionResult{Matched: false})
+		return marshalConditionResult(ConditionResult{Matched: false, Error: "bad request payload: " + err.Error()})
+	}
+
+	if err := d.init(); err != nil {
+		return marshalConditionResult(ConditionResult{Matched: false, Error: "plugin init failed: " + err.Error()})
 	}
 
 	handler, ok := d.ctx.conditions[req.NodeType]
 	if !ok {
-		return marshalConditionResult(ConditionResult{Matched: false})
+		return marshalConditionResult(ConditionResult{Matched: false, Error: "no condition handler registered for node type " + req.NodeType})
 	}
 	return marshalConditionResult(handler(&req))
 }
@@ -142,17 +146,19 @@ func (d *dispatcher) evaluateCondition(payload []byte) []byte {
 // runAction deserialises the host's action-execution payload (node type +
 // config + task snapshot + idempotency key) and dispatches it to the
 // plugin-contributed Action handler registered for that node type via
-// [Context.Action].
+// [Context.Action]. Mirrors handleRequest's ordering: the payload is parsed
+// before the plugin is initialised, so a malformed payload fails fast
+// without paying for Init.
 //
 //nolint:unused // used by wasm_exports.go in WASM builds
 func (d *dispatcher) runAction(payload []byte) []byte {
-	if err := d.init(); err != nil {
-		return marshalActionResult(ActionResult{Applied: false, Error: "plugin init failed: " + err.Error()})
-	}
-
 	var req ActionRequest
 	if err := unmarshalJSON(payload, &req); err != nil {
 		return marshalActionResult(ActionResult{Applied: false, Error: "bad request payload: " + err.Error()})
+	}
+
+	if err := d.init(); err != nil {
+		return marshalActionResult(ActionResult{Applied: false, Error: "plugin init failed: " + err.Error()})
 	}
 
 	handler, ok := d.ctx.actions[req.NodeType]

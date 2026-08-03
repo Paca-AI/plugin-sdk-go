@@ -41,24 +41,7 @@ func HandleRequest(ptr, length int32) int64 {
 	}
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.handleRequest(payload)
-	if len(result) == 0 {
-		return 0
-	}
-	// Allocate space in mallocBuffer for the response
-	outPtr := wasmMalloc(int32(len(result)))
-	if outPtr == 0 {
-		return 0
-	}
-	// Copy the result into allocated WASM memory.
-	out := wasmSlice(outPtr, int32(len(result)))
-	if len(out) != len(result) {
-		return 0
-	}
-	copy(out, result)
-	// Return offset and length combined into int64
-	// NOTE: Host MUST copy out the response before calling ResetAllocator,
-	// which is called after each HandleRequest completes.
-	return (int64(outPtr) << 32) | int64(len(result))
+	return packWASMResult(result)
 }
 
 //go:wasmexport ResetAllocator

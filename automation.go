@@ -46,9 +46,14 @@ type ConditionRequest struct {
 
 // ConditionResult is the response a Condition handler returns. Matched
 // selects which outgoing edge the automation graph walk follows next: the
-// node's "true" handle when true, its "else" handle otherwise.
+// node's "true" handle when true, its "else" handle otherwise. Error, when
+// non-empty, signals the condition could not be evaluated at all — a bad
+// host payload, an unregistered node type, or a plugin init failure — as
+// distinct from a handler legitimately evaluating to false. Mirrors
+// [ActionResult.Error].
 type ConditionResult struct {
-	Matched bool `json:"matched"`
+	Matched bool   `json:"matched"`
+	Error   string `json:"error,omitempty"`
 }
 
 // ActionRequest is the payload a plugin's Action handler receives: the
@@ -95,9 +100,6 @@ type ActionHandler func(req *ActionRequest) ActionResult
 // Only one handler may be registered per nodeType; registering the same
 // nodeType twice replaces the previous handler.
 func (c *Context) Condition(nodeType string, handler ConditionHandler) {
-	if c.conditions == nil {
-		c.conditions = make(map[string]ConditionHandler)
-	}
 	c.conditions[nodeType] = handler
 }
 
@@ -111,8 +113,5 @@ func (c *Context) Condition(nodeType string, handler ConditionHandler) {
 // Only one handler may be registered per nodeType; registering the same
 // nodeType twice replaces the previous handler.
 func (c *Context) Action(nodeType string, handler ActionHandler) {
-	if c.actions == nil {
-		c.actions = make(map[string]ActionHandler)
-	}
 	c.actions[nodeType] = handler
 }
