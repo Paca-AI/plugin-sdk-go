@@ -101,3 +101,9 @@ func hostConfigGet(keyPtr, keyLen, valuePtrPtr, valueLenPtr int64)
 //go:wasmimport paca permission_check
 //go:noescape
 func hostPermissionCheck(permissionPtr, permissionLen int64) int32
+
+// paca.settings_get(resPtrPtr i64, resLenPtr i64)
+//
+//go:wasmimport paca settings_get
+//go:noescape
+func hostSettingsGet(resPtrPtr, resLenPtr int64)

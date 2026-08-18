@@ -311,6 +311,47 @@ func Fetch(method, rawURL string, headers map[string]string, body string) (*Fetc
 	return &resp, nil
 }
 
+// ── GetBranding ───────────────────────────────────────────────────────────────
+
+// BrandingInfo mirrors the workspace's public branding (GET /branding).
+// Empty fields mean the admin has not customized that value — plugins
+// should fall back to their own defaults in that case.
+type BrandingInfo struct {
+	LogoURL           string `json:"logo_url"`
+	BrandName         string `json:"brand_name"`
+	PrimaryColorLight string `json:"primary_color_light"`
+	PrimaryColorDark  string `json:"primary_color_dark"`
+}
+
+type brandingResult struct {
+	BrandingInfo
+	Error string `json:"error"`
+}
+
+// GetBranding reads the workspace's current branding (logo, brand name,
+// primary colors) via the paca.settings_get host function. Call this at
+// send/render time rather than caching the result, so that an admin's
+// branding change is reflected immediately in anything rendered afterward.
+func GetBranding() (*BrandingInfo, error) {
+	outputBuf := make([]byte, 8)
+	hostSettingsGet(int64(ptrOf(outputBuf)), int64(ptrOf(outputBuf[4:])))
+	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
+	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
+	if resLen == 0 {
+		return nil, fmt.Errorf("plugin: settings_get: empty response from host")
+	}
+	resBytes := append([]byte(nil), wasmSlice(resPtr, resLen)...)
+	wasmResetAllocator()
+	var res brandingResult
+	if err := json.Unmarshal(resBytes, &res); err != nil {
+		return nil, fmt.Errorf("plugin: settings_get: decode response: %w", err)
+	}
+	if res.Error != "" {
+		return nil, fmt.Errorf("plugin: settings_get: %s", res.Error)
+	}
+	return &res.BrandingInfo, nil
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 //go:nocheckptr

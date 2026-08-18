@@ -78,6 +78,24 @@ func Fetch(_, _ string, _ map[string]string, _ string) (*FetchResponse, error) {
 	return nil, errNotWASM
 }
 
+// BrandingInfo is also defined in wasm_backends.go (wasip1); provide the
+// type here so non-WASM consumers can reference it.
+type BrandingInfo struct {
+	LogoURL           string `json:"logo_url"`
+	BrandName         string `json:"brand_name"`
+	PrimaryColorLight string `json:"primary_color_light"`
+	PrimaryColorDark  string `json:"primary_color_dark"`
+}
+
+// GetBranding always returns errNotWASM outside a WASM module.
+func GetBranding() (*BrandingInfo, error) { return nil, errNotWASM }
+
+// CustomHostImport mirrors the wasip1 type so non-WASM code can reference it.
+type CustomHostImport func(reqPtr, reqLen, resPtrPtr, resLenPtr int64)
+
+// CallHostFunction always returns errNotWASM outside a WASM module.
+func CallHostFunction(_ CustomHostImport, _ any, _ any) error { return errNotWASM }
+
 // ptrOf and hostError are used by wasm_backends.go (wasip1 only); provide
 // stubs here so the non-WASM build does not need them.
 //
