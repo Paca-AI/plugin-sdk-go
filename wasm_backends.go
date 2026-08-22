@@ -12,8 +12,19 @@ import (
 // ── Memory management ─────────────────────────────────────────────────────────
 
 // mallocBuffer is a pre-allocated buffer for host-managed memory allocations.
-// The host writes request data into this buffer and reads response data from it.
-var mallocBuffer [10 * 1024 * 1024]byte
+// The host writes request data into this buffer, and the response is later
+// packed into the same space — never both at once: wasm_exports.go resets
+// the allocator between reading the request and allocating the response, so
+// each phase gets the buffer's full capacity rather than splitting it. Sized
+// to match services/api's DefaultResourceLimits.MaxRequestBodyBytes
+// (paca/services/api/internal/platform/plugin/runtime.go) — the host already
+// rejects any payload larger than that before ever attempting to write it
+// here, so this only needs to cover the same ceiling, not more. This buffer
+// is a fixed array (not a growable slice) because mallocBase below caches its
+// linear-memory address once; a slice that reallocates on growth would go
+// stale and corrupt every pointer handed to the host afterward. Keep this in
+// sync with MaxRequestBodyBytes if either changes.
+var mallocBuffer [1 * 1024 * 1024]byte
 
 // mallocOffset tracks the next free position in mallocBuffer.
 var mallocOffset int32

@@ -61,13 +61,44 @@ func main() {
 
 ## Building for Paca
 
-Paca backend plugins must be compiled to WebAssembly using the WASI preview 1 target (`wasip1`).
+Paca backend plugins must be compiled to WebAssembly using the WASI preview 1 target (`wasip1`), with TinyGo:
 
 ```bash
-GOARCH=wasm GOOS=wasip1 go build -o plugin.wasm main.go
+tinygo build -target=wasip1 -buildmode=c-shared -o plugin.wasm main.go
 ```
 
-> **Note**: Using [TinyGo](https://tinygo.org/) is strongly recommended for producing smaller WASM binaries (often < 1MB vs ~10MB with standard Go).
+`-buildmode=c-shared` is required, not optional: without it, TinyGo doesn't
+wire up the WASI reactor entry point (`_initialize`) that this SDK's
+runtime depends on, and every call into the plugin panics at runtime with
+`"//go:wasmexport function called before runtime initialization"` — it
+still compiles fine without the flag, so this only surfaces once the
+plugin is actually loaded by the host.
+
+TinyGo is strongly recommended over the standard Go compiler: it doesn't
+statically link Go's full runtime (GC, scheduler, reflection), so a typical
+plugin binary is well under 1MB versus several MB with standard Go — and
+since every loaded plugin gets its own independent copy of that runtime on
+the host, this is a real difference in the host's memory use per plugin,
+not just download size.
+
+Standard Go 1.24+ also works (`GOARCH=wasm GOOS=wasip1 go build
+-buildmode=c-shared -o plugin.wasm main.go`) and is the right fallback if
+your plugin hits a TinyGo compatibility limitation — TinyGo implements a
+subset of the stdlib, notably around `reflect`. One TinyGo-specific
+constraint either way: if your plugin declares its own `//go:wasmimport`
+host function beyond what this SDK provides (see [`CallHostFunction`](./custom_host_call.go)),
+call it directly by name rather than passing it as a value — TinyGo
+doesn't support taking the address of a `go:wasmimport` function, only
+calling it. If you use `CallHostFunction`, wrap your import in a small
+closure:
+
+```go
+// Works under both standard Go and TinyGo:
+err := plugin.CallHostFunction(func(a, b, c, d int64) { hostMyImport(a, b, c, d) }, req, &res)
+
+// Compiles under standard Go, but fails to build under TinyGo:
+err := plugin.CallHostFunction(hostMyImport, req, &res)
+```
 
 ## API Reference
 
