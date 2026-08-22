@@ -48,6 +48,12 @@ func HandleRequest(ptr, length int32) int64 {
 	}
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.handleRequest(payload)
+	// handleRequest fully consumes payload via unmarshalJSON before doing
+	// anything else, so the request bytes are no longer needed by the time
+	// it returns. Reclaim the whole arena for the response instead of
+	// stacking the response after the request — otherwise a request near
+	// the arena's capacity would leave no room to allocate the response.
+	wasmResetAllocator()
 	return packWASMResult(result)
 }
 
@@ -63,6 +69,7 @@ func EvaluateCondition(ptr, length int32) int64 {
 	}
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.evaluateCondition(payload)
+	wasmResetAllocator() // see HandleRequest: payload is fully consumed by this point
 	return packWASMResult(result)
 }
 
@@ -73,6 +80,7 @@ func RunAction(ptr, length int32) int64 {
 	}
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.runAction(payload)
+	wasmResetAllocator() // see HandleRequest: payload is fully consumed by this point
 	return packWASMResult(result)
 }
 
