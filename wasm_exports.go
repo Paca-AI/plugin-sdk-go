@@ -3,22 +3,29 @@
 // Package plugin — WASM export layer.
 //
 // This file provides the four exported functions that the paca host runtime
-// expects: Init, HandleRequest, HandleEvent, Shutdown, plus malloc/free for
-// host-managed memory allocation.
+// expects: Init, HandleRequest, HandleEvent, Shutdown, plus paca_malloc/
+// paca_free for host-managed memory allocation.
 package plugin
 
 // ── Memory management ─────────────────────────────────────────────────────────
 
+// Exported as paca_malloc/paca_free, not malloc/free: TinyGo's own bundled
+// wasi-libc allocator already exports functions literally named "malloc" and
+// "free", so exporting under those same names produces a WASM module with
+// duplicate export names — invalid per spec, and rejected at load time. The
+// host's export lookup (services/api/internal/platform/plugin/runtime.go)
+// must use these same names.
+
 // nolint // exported function used by host runtime via WASM interface
 //
-//go:wasmexport malloc
+//go:wasmexport paca_malloc
 func malloc(size int32) int32 {
 	return wasmMalloc(size)
 }
 
 // nolint // exported function used by host runtime via WASM interface
 //
-//go:wasmexport free
+//go:wasmexport paca_free
 func free(_ int32) {}
 
 // ── Exported WASM functions ───────────────────────────────────────────────────
