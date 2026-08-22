@@ -81,7 +81,7 @@ since every loaded plugin gets its own independent copy of that runtime on
 the host, this is a real difference in the host's memory use per plugin,
 not just download size.
 
-Standard Go 1.21+ also works (`GOARCH=wasm GOOS=wasip1 go build
+Standard Go 1.24+ also works (`GOARCH=wasm GOOS=wasip1 go build
 -buildmode=c-shared -o plugin.wasm main.go`) and is the right fallback if
 your plugin hits a TinyGo compatibility limitation — TinyGo implements a
 subset of the stdlib, notably around `reflect`. One TinyGo-specific
