@@ -651,7 +651,7 @@ func (c *InMemoryConfig) Get(key string) (string, bool) {
 // FakePermissions is an in-memory plugin.PermissionBackend for tests. All
 // permissions are denied by default; call Grant to simulate a caller who
 // holds a given permission (typically a plugin-declared custom permission,
-// e.g. "time_logging.manage_all").
+// e.g. "time_logging:manage_all").
 type FakePermissions struct {
 	mu      sync.Mutex
 	granted map[string]bool

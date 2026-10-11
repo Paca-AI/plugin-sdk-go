@@ -96,7 +96,8 @@ func hostActivityRecord(payloadPtr, payloadLen int64) int32
 //go:noescape
 func hostConfigGet(keyPtr, keyLen, valuePtrPtr, valueLenPtr int64)
 
-// paca.permission_check(permissionPtr i64, permissionLen i64) -> ok i32
+// paca.permission_check(actionPtr i64, actionLen i64) -> ok i32 — whether
+// the caller may perform the given IAM action ("<domain>:<verb>").
 //
 //go:wasmimport paca permission_check
 //go:noescape
