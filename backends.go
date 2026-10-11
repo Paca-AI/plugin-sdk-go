@@ -142,16 +142,16 @@ type PermissionBackend interface {
 	Check(permission string) bool
 }
 
-// Permissions checks the current caller's effective permissions: the same
-// built-in permissions, legacy role permissions, and plugin-declared custom
-// permissions evaluated by the requirePermissions route middleware, plus any
-// custom permission granted to the caller's project/global role. Use it from
-// route handlers to enforce authorization finer-grained than the single
-// all-or-nothing scope declared on the route's manifest entry — e.g. "is the
-// caller the record's owner OR do they hold time_logging.manage_all".
+// Permissions checks whether the current caller may perform an IAM action
+// ("<domain>:<verb>", built-in such as "tasks:write" or plugin-declared such
+// as "time_logging:manage_all"), decided by the host's IAM engine exactly as
+// the requireActions route middleware decides it. Use it from route handlers
+// to enforce authorization finer-grained than the single all-or-nothing
+// requireActions gate on the route's manifest entry — e.g. "is the caller the
+// record's owner OR may they time_logging:manage_all".
 type Permissions struct {
 	backend PermissionBackend
 }
 
-// Check reports whether the current caller holds the given permission key.
+// Check reports whether the current caller may perform the given IAM action.
 func (p *Permissions) Check(permission string) bool { return p.backend.Check(permission) }
