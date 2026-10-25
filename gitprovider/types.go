@@ -199,6 +199,9 @@ type Capabilities struct {
 	Reactions         bool `json:"reactions"`
 	WebhookManagement bool `json:"webhook_management"`
 	IdentityDeletion  bool `json:"identity_deletion"`
+	// Branches is true when branches can be looked up and created through the
+	// provider (core uses it to link and create a task's branch).
+	Branches bool `json:"branches"`
 	// AccessGrants is true when an identity must be granted access to each
 	// account or organization before it can see its repositories, and a user
 	// does that on the platform (GitHub: installing the App on an account).
@@ -439,6 +442,9 @@ type EventSubject struct {
 	Base   string      `json:"base,omitempty"`
 	Draft  bool        `json:"draft,omitempty"`
 	Author string      `json:"author,omitempty"`
+	// URL is the subject's web page, when the platform's event carries it; core
+	// shows it as the link to the pull/merge request.
+	URL string `json:"url,omitempty"`
 }
 
 // Location pins a review comment to code.
@@ -942,3 +948,26 @@ type RemoveWebhookRequest struct {
 
 // Empty is the result of operations that return nothing.
 type Empty struct{}
+
+// ── Branches ─────────────────────────────────────────────────────────────────
+
+// GetBranchRequest asks whether a branch exists.
+type GetBranchRequest struct {
+	Target Target `json:"target"`
+	Name   string `json:"name"`
+}
+
+// CreateBranchRequest creates a branch from another branch (or the default).
+type CreateBranchRequest struct {
+	Target         Target `json:"target"`
+	Name           string `json:"name"`
+	From           string `json:"from,omitempty"` // empty = the repository's default branch
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
+}
+
+// BranchInfo is a branch and the commit it points at.
+type BranchInfo struct {
+	Name string `json:"name"`
+	SHA  string `json:"sha"`
+	URL  string `json:"url,omitempty"`
+}

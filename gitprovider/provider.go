@@ -116,6 +116,15 @@ type AccessGranter interface {
 	CompleteAccessGrant(ctx context.Context, req CompleteAccessRequest) (AccessGrant, error)
 }
 
+// BranchManager looks up and creates branches (capability Branches). GetBranch
+// returns not_found for a missing branch; CreateBranch returns conflict when the
+// name is taken, not_found when From does not exist and validation for an
+// invalid name.
+type BranchManager interface {
+	GetBranch(ctx context.Context, req GetBranchRequest) (BranchInfo, error)
+	CreateBranch(ctx context.Context, req CreateBranchRequest) (BranchInfo, error)
+}
+
 // Implemented reports which optional capabilities p actually implements, so
 // tooling can compare them with what [Info] declares.
 func Implemented(p Provider) Capabilities {
@@ -129,6 +138,7 @@ func Implemented(p Provider) Capabilities {
 	_, c.Merge = p.(Merger)
 	_, c.RerunChecks = p.(CheckRerunner)
 	_, c.Reactions = p.(Reactor)
+	_, c.Branches = p.(BranchManager)
 	_, c.WebhookManagement = p.(WebhookManager)
 	_, c.IdentityDeletion = p.(IdentityDeleter)
 	_, c.AccessGrants = p.(AccessGranter)

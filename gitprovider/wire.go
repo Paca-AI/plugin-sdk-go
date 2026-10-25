@@ -92,6 +92,8 @@ var operations = []opEntry{
 	optional("merge_change_request", "merge", Merger.MergeChangeRequest),
 	optional("rerun_checks", "rerun_checks", CheckRerunner.RerunChecks),
 	optional("react", "reactions", Reactor.React),
+	optional("get_branch", "branches", BranchManager.GetBranch),
+	optional("create_branch", "branches", BranchManager.CreateBranch),
 	optional("ensure_webhook", "webhook_management", WebhookManager.EnsureWebhook),
 	optional("remove_webhook", "webhook_management", WebhookManager.RemoveWebhook),
 	optional("delete_identity", "identity_deletion", IdentityDeleter.DeleteIdentity),

@@ -35,10 +35,60 @@ func New() *Full {
 		Triggers:           gp.AllTriggerKinds,
 		MultipleIdentities: true,
 		ResolveThreads:     true, FileRead: true, CodeSearch: true, Labels: true, ReviewerRequests: true, Assignees: true,
-		Merge: true, RerunChecks: true, Reactions: true, WebhookManagement: true, IdentityDeletion: true, AccessGrants: true,
+		Merge: true, RerunChecks: true, Reactions: true, Branches: true, WebhookManagement: true, IdentityDeletion: true, AccessGrants: true,
 		BatchReview: true, IdempotentWrites: true, HiddenMarkers: true, ForkChangeRequests: true, DraftChangeRequests: true,
 		CIConfigGlobs: []string{".fake-ci/**"},
 	})}
+}
+
+// validBranchName reports whether name is acceptable as a branch name (the
+// fake's rule is git's core one: no spaces or ref-special characters).
+func validBranchName(name string) bool {
+	if name == "" || strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") || strings.Contains(name, "..") || strings.HasSuffix(name, ".lock") {
+		return false
+	}
+	return !strings.ContainsAny(name, " ~^:?*[\\")
+}
+
+// GetBranch implements gp.BranchManager.
+func (f *Full) GetBranch(_ context.Context, req gp.GetBranchRequest) (gp.BranchInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r, err := f.repo(req.Target)
+	if err != nil {
+		return gp.BranchInfo{}, err
+	}
+	sha, ok := r.branches[req.Name]
+	if !ok {
+		return gp.BranchInfo{}, gp.Errorf(gp.CodeNotFound, "branch not found")
+	}
+	return gp.BranchInfo{Name: req.Name, SHA: sha, URL: "https://" + Host + "/" + r.ref.FullPath + "/tree/" + req.Name}, nil
+}
+
+// CreateBranch implements gp.BranchManager.
+func (f *Full) CreateBranch(_ context.Context, req gp.CreateBranchRequest) (gp.BranchInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r, err := f.repo(req.Target)
+	if err != nil {
+		return gp.BranchInfo{}, err
+	}
+	if !validBranchName(req.Name) {
+		return gp.BranchInfo{}, gp.Errorf(gp.CodeValidation, "invalid branch name")
+	}
+	from := req.From
+	if from == "" {
+		from = r.ref.DefaultBranch
+	}
+	sha, ok := r.branches[from]
+	if !ok {
+		return gp.BranchInfo{}, gp.Errorf(gp.CodeNotFound, "source branch not found")
+	}
+	if _, taken := r.branches[req.Name]; taken {
+		return gp.BranchInfo{}, gp.Errorf(gp.CodeConflict, "branch already exists")
+	}
+	r.branches[req.Name] = sha
+	return gp.BranchInfo{Name: req.Name, SHA: sha, URL: "https://" + Host + "/" + r.ref.FullPath + "/tree/" + req.Name}, nil
 }
 
 // ResolveThread implements gp.ThreadResolver.

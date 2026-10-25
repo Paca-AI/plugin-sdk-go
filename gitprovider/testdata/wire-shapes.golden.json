@@ -59,6 +59,11 @@
       "repo": "string",
       "sha": "string"
     },
+    "BranchInfo": {
+      "name": "string",
+      "sha": "string",
+      "url": "string"
+    },
     "BranchProtection": {
       "allows_force_push": "bool",
       "protected": "bool",
@@ -105,6 +110,7 @@
       "access_grants": "bool",
       "assignees": "bool",
       "batch_review": "bool",
+      "branches": "bool",
       "ci_config_globs": [
         "string"
       ],
@@ -331,6 +337,26 @@
       "scope": "string",
       "state": "string"
     },
+    "CreateBranchRequest": {
+      "from": "string",
+      "idempotency_key": "string",
+      "name": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
     "Credential": {
       "expires_at": "time",
       "secret": "string",
@@ -453,7 +479,8 @@
           "sha": "string"
         },
         "kind": "string",
-        "number": "string"
+        "number": "string",
+        "url": "string"
       },
       "text": "string"
     },
@@ -468,7 +495,8 @@
         "sha": "string"
       },
       "kind": "string",
-      "number": "string"
+      "number": "string",
+      "url": "string"
     },
     "File": {
       "content": "bytes",
@@ -502,6 +530,24 @@
       "name": "string",
       "required": "bool",
       "secret": "bool"
+    },
+    "GetBranchRequest": {
+      "name": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
     },
     "Identity": {
       "display_name": "string",
@@ -543,6 +589,7 @@
         "access_grants": "bool",
         "assignees": "bool",
         "batch_review": "bool",
+        "branches": "bool",
         "ci_config_globs": [
           "string"
         ],

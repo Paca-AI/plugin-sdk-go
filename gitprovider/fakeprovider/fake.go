@@ -65,6 +65,7 @@ type repoState struct {
 	hooks     map[string]string
 	nextID    int
 	statuses  map[string]gp.SetStatusRequest
+	branches  map[string]string // branch → commit sha
 }
 
 // Core implements the required [gp.Provider] surface against an in-memory world.
@@ -103,6 +104,7 @@ func (c *Core) seedRepo(path string, private bool) *repoState {
 		checks:    map[string][]gp.Check{SeedHeadSHA: {{ID: "chk-1", Name: "ci/test", State: gp.CheckFailure, Required: true, URL: "https://" + Host + "/chk-1"}, {ID: "chk-2", Name: "ci/lint", State: gp.CheckSuccess}}},
 		hooks:     map[string]string{},
 		statuses:  map[string]gp.SetStatusRequest{},
+		branches:  map[string]string{"main": "base000", "feat/x": SeedHeadSHA},
 	}
 	r.crs[SeedCRNumber] = &cr{
 		ChangeRequest: gp.ChangeRequest{Number: SeedCRNumber, Title: "Add feature", Body: "Implements the feature.", State: gp.CROpen,

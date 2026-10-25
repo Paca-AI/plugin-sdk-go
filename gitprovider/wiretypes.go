@@ -35,6 +35,7 @@ func WireTypes() map[string]reflect.Type {
 		"SetStatusRequest": t(SetStatusRequest{}), "StatusResult": t(StatusResult{}),
 		"ResolveThreadRequest": t(ResolveThreadRequest{}), "LabelsRequest": t(LabelsRequest{}), "PeopleRequest": t(PeopleRequest{}),
 		"MergeRequest": t(MergeRequest{}), "MergeResult": t(MergeResult{}), "RerunRequest": t(RerunRequest{}), "ReactRequest": t(ReactRequest{}),
+		"GetBranchRequest": t(GetBranchRequest{}), "CreateBranchRequest": t(CreateBranchRequest{}), "BranchInfo": t(BranchInfo{}),
 		"EnsureWebhookRequest": t(EnsureWebhookRequest{}), "WebhookRef": t(WebhookRef{}), "RemoveWebhookRequest": t(RemoveWebhookRequest{}),
 		"Error": t(Error{}), "Envelope": t(Envelope{}),
 	}

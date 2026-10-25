@@ -279,6 +279,7 @@ func testDescribe(t *testing.T, h Harness) {
 	check("reactions", c.Reactions, impl.Reactions)
 	check("webhook_management", c.WebhookManagement, impl.WebhookManagement)
 	check("identity_deletion", c.IdentityDeletion, impl.IdentityDeletion)
+	check("branches", c.Branches, impl.Branches)
 	check("access_grants", c.AccessGrants, impl.AccessGrants)
 }
 
@@ -1068,6 +1069,34 @@ func testOptionalWrites(t *testing.T, h Harness) {
 			}
 			_, err = tr.ResolveThread(ctx(), gp.ResolveThreadRequest{Target: tg, Number: f.ChangeRequest, ThreadID: "no-such-thread", Resolved: true})
 			mustCode(t, f, err, gp.CodeNotFound)
+		})
+	}
+	if caps.Branches {
+		t.Run("branches", func(t *testing.T) {
+			p := h.New(t)
+			bm := p.(gp.BranchManager)
+			def := tg.Repo.DefaultBranch
+			base, err := bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: def})
+			if err != nil || base.Name != def || base.SHA == "" {
+				t.Fatalf("GetBranch(default): %+v %v", base, err)
+			}
+			_, err = bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: "no-such-branch"})
+			mustCode(t, f, err, gp.CodeNotFound)
+
+			made, err := bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "paca/conformance"})
+			if err != nil || made.Name != "paca/conformance" || made.SHA != base.SHA {
+				t.Fatalf("CreateBranch from the default branch: %+v %v (want sha %s)", made, err, base.SHA)
+			}
+			got, err := bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: "paca/conformance"})
+			if err != nil || got.SHA != made.SHA {
+				t.Errorf("created branch not visible: %+v %v", got, err)
+			}
+			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "paca/conformance"})
+			mustCode(t, f, err, gp.CodeConflict)
+			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "paca/from-missing", From: "no-such-branch"})
+			mustCode(t, f, err, gp.CodeNotFound)
+			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "bad name~^"})
+			mustCode(t, f, err, gp.CodeValidation)
 		})
 	}
 	if caps.Labels {
