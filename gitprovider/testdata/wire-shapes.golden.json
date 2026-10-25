@@ -1,0 +1,1226 @@
+{
+  "spi_version": "gitprovider.v1",
+  "types": {
+    "AccessGrant": {
+      "owner": "string"
+    },
+    "Actor": {
+      "kind": "string",
+      "login": "string",
+      "permission": "string"
+    },
+    "ActorPermissionRequest": {
+      "login": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "Addressed": {
+      "identity_id": "string",
+      "via": "string"
+    },
+    "BeginAccessRequest": {
+      "callback_url": "string",
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      },
+      "owner": "string",
+      "return_url": "string"
+    },
+    "BeginSetupRequest": {
+      "agent_id": "string",
+      "agent_name": "string",
+      "callback_url": "string",
+      "host": "string",
+      "params": {
+        "*": "string"
+      },
+      "return_url": "string",
+      "scope": "string",
+      "webhook_url": "string"
+    },
+    "Branch": {
+      "from_fork": "bool",
+      "ref": "string",
+      "repo": "string",
+      "sha": "string"
+    },
+    "BranchInfo": {
+      "name": "string",
+      "sha": "string",
+      "url": "string"
+    },
+    "BranchProtection": {
+      "allows_force_push": "bool",
+      "protected": "bool",
+      "requires_review": "bool",
+      "requires_status_checks": "bool"
+    },
+    "BranchProtectionRequest": {
+      "branch": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "CRRequest": {
+      "number": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "Capabilities": {
+      "access_grants": "bool",
+      "assignees": "bool",
+      "batch_review": "bool",
+      "branches": "bool",
+      "ci_config_globs": [
+        "string"
+      ],
+      "code_search": "bool",
+      "credential_model": "string",
+      "draft_change_requests": "bool",
+      "file_read": "bool",
+      "fork_change_requests": "bool",
+      "hidden_markers": "bool",
+      "idempotent_writes": "bool",
+      "identity_deletion": "bool",
+      "identity_kinds": [
+        "string"
+      ],
+      "labels": "bool",
+      "merge": "bool",
+      "multiple_identities": "bool",
+      "nested_paths": "bool",
+      "reactions": "bool",
+      "rerun_checks": "bool",
+      "resolve_threads": "bool",
+      "reviewer_requests": "bool",
+      "status_kind": "string",
+      "triggers": [
+        "string"
+      ],
+      "webhook_management": "bool",
+      "webhook_scope": "string"
+    },
+    "ChangeRequest": {
+      "author": "string",
+      "base": {
+        "from_fork": "bool",
+        "ref": "string",
+        "repo": "string",
+        "sha": "string"
+      },
+      "body": "string",
+      "draft": "bool",
+      "head": {
+        "from_fork": "bool",
+        "ref": "string",
+        "repo": "string",
+        "sha": "string"
+      },
+      "labels": [
+        "string"
+      ],
+      "number": "string",
+      "reviewers": [
+        "string"
+      ],
+      "state": "string",
+      "title": "string",
+      "updated_at": "time",
+      "url": "string"
+    },
+    "ChangedFile": {
+      "additions": "number",
+      "deletions": "number",
+      "old_path": "string",
+      "path": "string",
+      "status": "string"
+    },
+    "ChangedFilePage": {
+      "items": [
+        {
+          "additions": "number",
+          "deletions": "number",
+          "old_path": "string",
+          "path": "string",
+          "status": "string"
+        }
+      ],
+      "next_cursor": "string"
+    },
+    "Check": {
+      "id": "string",
+      "name": "string",
+      "required": "bool",
+      "state": "string",
+      "summary": "string",
+      "url": "string"
+    },
+    "CheckInfo": {
+      "conclusion": "string",
+      "name": "string",
+      "run_id": "string",
+      "sha": "string"
+    },
+    "CheckLogsRequest": {
+      "check_id": "string",
+      "tail_bytes": "number",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "ChecksRequest": {
+      "ref": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "CodeHit": {
+      "line": "number",
+      "path": "string",
+      "snippet": "string"
+    },
+    "CodeHits": {
+      "items": [
+        {
+          "line": "number",
+          "path": "string",
+          "snippet": "string"
+        }
+      ]
+    },
+    "CodeSearchRequest": {
+      "query": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "Comment": {
+      "author": "string",
+      "author_kind": "string",
+      "body": "string",
+      "created_at": "time",
+      "id": "string",
+      "url": "string"
+    },
+    "CommentPage": {
+      "items": [
+        {
+          "author": "string",
+          "author_kind": "string",
+          "body": "string",
+          "created_at": "time",
+          "id": "string",
+          "url": "string"
+        }
+      ],
+      "next_cursor": "string"
+    },
+    "CommentRequest": {
+      "body": "string",
+      "idempotency_key": "string",
+      "subject": {
+        "kind": "string",
+        "number": "string"
+      },
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "CommentResult": {
+      "id": "string",
+      "url": "string"
+    },
+    "CompleteAccessRequest": {
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      },
+      "params": {
+        "*": "string"
+      },
+      "state": "string"
+    },
+    "CompleteSetupRequest": {
+      "host": "string",
+      "params": {
+        "*": "string"
+      },
+      "scope": "string",
+      "state": "string"
+    },
+    "CreateBranchRequest": {
+      "from": "string",
+      "idempotency_key": "string",
+      "name": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "Credential": {
+      "expires_at": "time",
+      "secret": "string",
+      "username": "string"
+    },
+    "DeleteIdentityRequest": {
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      }
+    },
+    "Diff": {
+      "text": "string",
+      "truncated": "bool"
+    },
+    "DiffRequest": {
+      "max_bytes": "number",
+      "number": "string",
+      "path": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "EnsureWebhookRequest": {
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "url": "string"
+    },
+    "Envelope": {
+      "error": {
+        "code": "string",
+        "message": "string",
+        "retry_after_seconds": "number"
+      },
+      "ok": "bool",
+      "result": "bytes"
+    },
+    "Error": {
+      "code": "string",
+      "message": "string",
+      "retry_after_seconds": "number"
+    },
+    "Event": {
+      "action": "string",
+      "actor": {
+        "kind": "string",
+        "login": "string",
+        "permission": "string"
+      },
+      "addressed": [
+        {
+          "identity_id": "string",
+          "via": "string"
+        }
+      ],
+      "check": {
+        "conclusion": "string",
+        "name": "string",
+        "run_id": "string",
+        "sha": "string"
+      },
+      "id": "string",
+      "kind": "string",
+      "label": "string",
+      "location": {
+        "comment_id": "string",
+        "line": "number",
+        "path": "string",
+        "thread_id": "string"
+      },
+      "push": {
+        "created": "bool",
+        "deleted": "bool",
+        "ref": "string",
+        "sha": "string"
+      },
+      "raw_ref": "string",
+      "repo": {
+        "clone_url": "string",
+        "default_branch": "string",
+        "external_id": "string",
+        "full_path": "string",
+        "host": "string",
+        "provider_ref": "bytes"
+      },
+      "subject": {
+        "author": "string",
+        "base": "string",
+        "draft": "bool",
+        "head": {
+          "from_fork": "bool",
+          "ref": "string",
+          "repo": "string",
+          "sha": "string"
+        },
+        "kind": "string",
+        "number": "string",
+        "url": "string"
+      },
+      "text": "string"
+    },
+    "EventSubject": {
+      "author": "string",
+      "base": "string",
+      "draft": "bool",
+      "head": {
+        "from_fork": "bool",
+        "ref": "string",
+        "repo": "string",
+        "sha": "string"
+      },
+      "kind": "string",
+      "number": "string",
+      "url": "string"
+    },
+    "File": {
+      "content": "bytes",
+      "path": "string",
+      "sha": "string",
+      "truncated": "bool"
+    },
+    "FileRequest": {
+      "max_bytes": "number",
+      "path": "string",
+      "ref": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "FormField": {
+      "help": "string",
+      "label": "string",
+      "name": "string",
+      "required": "bool",
+      "secret": "bool"
+    },
+    "GetBranchRequest": {
+      "name": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "Identity": {
+      "display_name": "string",
+      "expires_at": "time",
+      "host": "string",
+      "kind": "string",
+      "next": {
+        "fields": {
+          "*": "string"
+        },
+        "form": [
+          {
+            "help": "string",
+            "label": "string",
+            "name": "string",
+            "required": "bool",
+            "secret": "bool"
+          }
+        ],
+        "identity": "recursive:Identity",
+        "kind": "string",
+        "prompt": "string",
+        "state": "string",
+        "url": "string"
+      },
+      "ref": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      }
+    },
+    "IdentityRef": {
+      "handle": "string",
+      "id": "string",
+      "provider_ref": "bytes"
+    },
+    "Info": {
+      "capabilities": {
+        "access_grants": "bool",
+        "assignees": "bool",
+        "batch_review": "bool",
+        "branches": "bool",
+        "ci_config_globs": [
+          "string"
+        ],
+        "code_search": "bool",
+        "credential_model": "string",
+        "draft_change_requests": "bool",
+        "file_read": "bool",
+        "fork_change_requests": "bool",
+        "hidden_markers": "bool",
+        "idempotent_writes": "bool",
+        "identity_deletion": "bool",
+        "identity_kinds": [
+          "string"
+        ],
+        "labels": "bool",
+        "merge": "bool",
+        "multiple_identities": "bool",
+        "nested_paths": "bool",
+        "reactions": "bool",
+        "rerun_checks": "bool",
+        "resolve_threads": "bool",
+        "reviewer_requests": "bool",
+        "status_kind": "string",
+        "triggers": [
+          "string"
+        ],
+        "webhook_management": "bool",
+        "webhook_scope": "string"
+      },
+      "display_name": "string",
+      "hosts": [
+        "string"
+      ],
+      "icon": "string",
+      "id": "string",
+      "self_hosted_hosts": "bool",
+      "spi_version": "string",
+      "terms": {
+        "change_request": "string",
+        "change_request_plural": "string",
+        "repository": "string"
+      }
+    },
+    "InlineComment": {
+      "body": "string",
+      "line": "number",
+      "path": "string",
+      "side": "string"
+    },
+    "Issue": {
+      "assignees": [
+        "string"
+      ],
+      "author": "string",
+      "body": "string",
+      "labels": [
+        "string"
+      ],
+      "number": "string",
+      "state": "string",
+      "title": "string",
+      "url": "string"
+    },
+    "IssueRequest": {
+      "number": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "LabelsRequest": {
+      "labels": [
+        "string"
+      ],
+      "subject": {
+        "kind": "string",
+        "number": "string"
+      },
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "ListCommentsRequest": {
+      "cursor": "string",
+      "subject": {
+        "kind": "string",
+        "number": "string"
+      },
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "ListReposRequest": {
+      "cursor": "string",
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      },
+      "page_size": "number",
+      "query": "string"
+    },
+    "Location": {
+      "comment_id": "string",
+      "line": "number",
+      "path": "string",
+      "thread_id": "string"
+    },
+    "Logs": {
+      "text": "string",
+      "truncated": "bool"
+    },
+    "MergeRequest": {
+      "expected_head_sha": "string",
+      "method": "string",
+      "number": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "MergeResult": {
+      "sha": "string"
+    },
+    "MintRequest": {
+      "access": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "ttl_seconds": "number"
+    },
+    "OpenCRRequest": {
+      "base": "string",
+      "body": "string",
+      "draft": "bool",
+      "head": "string",
+      "idempotency_key": "string",
+      "labels": [
+        "string"
+      ],
+      "reviewers": [
+        "string"
+      ],
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "title": "string"
+    },
+    "PagedCRRequest": {
+      "cursor": "string",
+      "number": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "PeopleRequest": {
+      "logins": [
+        "string"
+      ],
+      "subject": {
+        "kind": "string",
+        "number": "string"
+      },
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "PushInfo": {
+      "created": "bool",
+      "deleted": "bool",
+      "ref": "string",
+      "sha": "string"
+    },
+    "ReactRequest": {
+      "comment_id": "string",
+      "emoji": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "RemoveWebhookRequest": {
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "webhook": {
+        "id": "string"
+      }
+    },
+    "ReplyThreadRequest": {
+      "body": "string",
+      "idempotency_key": "string",
+      "number": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "thread_id": "string"
+    },
+    "RepoRef": {
+      "clone_url": "string",
+      "default_branch": "string",
+      "external_id": "string",
+      "full_path": "string",
+      "host": "string",
+      "provider_ref": "bytes"
+    },
+    "Repository": {
+      "description": "string",
+      "private": "bool",
+      "ref": {
+        "clone_url": "string",
+        "default_branch": "string",
+        "external_id": "string",
+        "full_path": "string",
+        "host": "string",
+        "provider_ref": "bytes"
+      }
+    },
+    "RepositoryPage": {
+      "items": [
+        {
+          "description": "string",
+          "private": "bool",
+          "ref": {
+            "clone_url": "string",
+            "default_branch": "string",
+            "external_id": "string",
+            "full_path": "string",
+            "host": "string",
+            "provider_ref": "bytes"
+          }
+        }
+      ],
+      "next_cursor": "string"
+    },
+    "RerunRequest": {
+      "check_id": "string",
+      "ref": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "ResolveRepoRequest": {
+      "candidates": [
+        {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        }
+      ],
+      "host": "string",
+      "path_or_url": "string"
+    },
+    "ResolveThreadRequest": {
+      "number": "string",
+      "resolved": "bool",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "thread_id": "string"
+    },
+    "ResolvedRepository": {
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      },
+      "repository": {
+        "description": "string",
+        "private": "bool",
+        "ref": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      }
+    },
+    "ReviewResult": {
+      "emulated": "bool",
+      "id": "string",
+      "posted": "number",
+      "url": "string"
+    },
+    "SetStatusRequest": {
+      "sha": "string",
+      "state": "string",
+      "status_ref": "string",
+      "subject": {
+        "kind": "string",
+        "number": "string"
+      },
+      "summary": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "title": "string",
+      "url": "string"
+    },
+    "SetupStep": {
+      "fields": {
+        "*": "string"
+      },
+      "form": [
+        {
+          "help": "string",
+          "label": "string",
+          "name": "string",
+          "required": "bool",
+          "secret": "bool"
+        }
+      ],
+      "identity": {
+        "display_name": "string",
+        "expires_at": "time",
+        "host": "string",
+        "kind": "string",
+        "next": "recursive:SetupStep",
+        "ref": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "kind": "string",
+      "prompt": "string",
+      "state": "string",
+      "url": "string"
+    },
+    "StatusResult": {
+      "status_ref": "string"
+    },
+    "SubjectRef": {
+      "kind": "string",
+      "number": "string"
+    },
+    "SubmitReviewRequest": {
+      "comments": [
+        {
+          "body": "string",
+          "line": "number",
+          "path": "string",
+          "side": "string"
+        }
+      ],
+      "head_sha": "string",
+      "idempotency_key": "string",
+      "number": "string",
+      "summary": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "verdict": "string"
+    },
+    "Target": {
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      },
+      "repo": {
+        "clone_url": "string",
+        "default_branch": "string",
+        "external_id": "string",
+        "full_path": "string",
+        "host": "string",
+        "provider_ref": "bytes"
+      }
+    },
+    "Terms": {
+      "change_request": "string",
+      "change_request_plural": "string",
+      "repository": "string"
+    },
+    "Thread": {
+      "comments": [
+        {
+          "author": "string",
+          "author_kind": "string",
+          "body": "string",
+          "created_at": "time",
+          "id": "string",
+          "url": "string"
+        }
+      ],
+      "id": "string",
+      "line": "number",
+      "outdated": "bool",
+      "path": "string",
+      "resolved": "bool"
+    },
+    "ThreadPage": {
+      "items": [
+        {
+          "comments": [
+            {
+              "author": "string",
+              "author_kind": "string",
+              "body": "string",
+              "created_at": "time",
+              "id": "string",
+              "url": "string"
+            }
+          ],
+          "id": "string",
+          "line": "number",
+          "outdated": "bool",
+          "path": "string",
+          "resolved": "bool"
+        }
+      ],
+      "next_cursor": "string"
+    },
+    "UpdateCRRequest": {
+      "body": "string",
+      "draft": "bool",
+      "number": "string",
+      "state": "string",
+      "target": {
+        "identity": {
+          "handle": "string",
+          "id": "string",
+          "provider_ref": "bytes"
+        },
+        "repo": {
+          "clone_url": "string",
+          "default_branch": "string",
+          "external_id": "string",
+          "full_path": "string",
+          "host": "string",
+          "provider_ref": "bytes"
+        }
+      },
+      "title": "string"
+    },
+    "WebhookRef": {
+      "id": "string"
+    },
+    "WebhookRequest": {
+      "body": "bytes",
+      "headers": {
+        "*": "string"
+      },
+      "identity": {
+        "handle": "string",
+        "id": "string",
+        "provider_ref": "bytes"
+      },
+      "method": "string",
+      "query": {
+        "*": "string"
+      }
+    }
+  }
+}
