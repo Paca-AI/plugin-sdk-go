@@ -67,7 +67,7 @@ func TestOperationsTable(t *testing.T) {
 			t.Errorf("capability %q gates no operation", flag)
 		}
 	}
-	if impl := gp.Implemented(fakeprovider.New()); !(impl.Merge && impl.WebhookManagement && impl.IdentityDeletion) {
+	if impl := gp.Implemented(fakeprovider.New()); !impl.Merge || !impl.WebhookManagement || !impl.IdentityDeletion {
 		t.Error("Implemented() must see the full fake's optional interfaces")
 	}
 	if impl := gp.Implemented(fakeprovider.NewMinimal()); impl.Merge || impl.FileRead {

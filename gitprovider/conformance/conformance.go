@@ -346,7 +346,7 @@ func testSetup(t *testing.T, h Harness) {
 	} else {
 		mustCode(t, f, err, gp.CodeValidation)
 	}
-	if p.Describe().Capabilities.MultipleIdentities == false {
+	if !p.Describe().Capabilities.MultipleIdentities {
 		_, err := p.BeginIdentitySetup(ctx(), gp.BeginSetupRequest{Scope: gp.SetupAgent, Host: f.SetupHost, AgentID: "a1", AgentName: "dev"})
 		mustCode(t, f, err, gp.CodeUnsupported)
 	}

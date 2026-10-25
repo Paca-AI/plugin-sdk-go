@@ -48,7 +48,6 @@ type cr struct {
 	gp.ChangeRequest
 	files   []gp.ChangedFile
 	threads []*gp.Thread
-	merged  bool
 }
 
 type repoState struct {
