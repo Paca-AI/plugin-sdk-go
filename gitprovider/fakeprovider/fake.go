@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	gp "github.com/Paca-AI/plugin-sdk-go/gitprovider"
 )
@@ -125,6 +126,23 @@ func (c *Core) repo(t gp.Target) (*repoState, error) {
 		return nil, gp.Errorf(gp.CodeNotFound, "repository not found")
 	}
 	return r, nil
+}
+
+// cutHead keeps at most n bytes from the start of s, on a rune boundary.
+func cutHead(s string, n int) string {
+	for n > 0 && n < len(s) && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
+}
+
+// cutTail keeps at most n bytes from the end of s, on a rune boundary.
+func cutTail(s string, n int) string {
+	i := len(s) - n
+	for i < len(s) && !utf8.RuneStart(s[i]) {
+		i++
+	}
+	return s[i:]
 }
 
 func (c *Core) next(prefix string) string { c.seq++; return fmt.Sprintf("%s-%d", prefix, c.seq) }
@@ -462,7 +480,7 @@ func (c *Core) GetDiff(_ context.Context, req gp.DiffRequest) (gp.Diff, error) {
 	}
 	out := b.String()
 	if req.MaxBytes > 0 && len(out) > req.MaxBytes {
-		return gp.Diff{Text: out[:req.MaxBytes], Truncated: true}, nil
+		return gp.Diff{Text: cutHead(out, req.MaxBytes), Truncated: true}, nil
 	}
 	return gp.Diff{Text: out}, nil
 }
@@ -534,7 +552,7 @@ func (c *Core) GetCheckLogs(_ context.Context, req gp.CheckLogsRequest) (gp.Logs
 			if ch.ID == req.CheckID {
 				log := "step 1 ok\nstep 2 FAILED: expected 1, got 2\n"
 				if req.TailBytes > 0 && len(log) > req.TailBytes {
-					return gp.Logs{Text: log[len(log)-req.TailBytes:], Truncated: true}, nil
+					return gp.Logs{Text: cutTail(log, req.TailBytes), Truncated: true}, nil
 				}
 				return gp.Logs{Text: log}, nil
 			}

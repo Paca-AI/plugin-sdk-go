@@ -24,7 +24,7 @@ type opEntry struct {
 func decode[Req any](body []byte) (Req, error) {
 	var r Req
 	if len(body) == 0 {
-		return r, nil
+		return r, Errorf(CodeValidation, "request body is required")
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
 		return r, Errorf(CodeValidation, "malformed request body")
@@ -119,10 +119,19 @@ func Operations() []Operation {
 // Dispatch runs one operation by wire name against p and returns the HTTP
 // status and the JSON [Envelope]. It never panics on bad input: unknown
 // operations and malformed bodies become typed errors.
-func Dispatch(ctx context.Context, p Provider, op string, body []byte) (int, []byte) {
+func Dispatch(ctx context.Context, p Provider, op string, body []byte) (status int, out []byte) {
+	// A panicking provider must not take the plugin down or leak internals.
+	defer func() {
+		if r := recover(); r != nil {
+			status, out = fail(Errorf(CodeInternal, "internal provider error"))
+		}
+	}()
 	entry, ok := opIndex[op]
 	if !ok {
 		return fail(Errorf(CodeUnsupported, "unknown operation %q", op))
+	}
+	if entry.Capability != "" && !declared(p, entry.Capability) {
+		return fail(ErrUnsupported)
 	}
 	result, err := entry.call(ctx, p, body)
 	if err != nil {
@@ -132,8 +141,23 @@ func Dispatch(ctx context.Context, p Provider, op string, body []byte) (int, []b
 	if mErr != nil {
 		return fail(Errorf(CodeInternal, "could not encode result"))
 	}
-	out, _ := json.Marshal(Envelope{OK: true, Result: raw})
+	out, _ = json.Marshal(Envelope{OK: true, Result: raw})
 	return http.StatusOK, out
+}
+
+// declared reports whether p's Describe() sets the capability flag (by JSON
+// name) to true. Optional operations are only served when it is.
+func declared(p Provider, capability string) bool {
+	raw, err := json.Marshal(p.Describe().Capabilities)
+	if err != nil {
+		return false
+	}
+	var flags map[string]any
+	if json.Unmarshal(raw, &flags) != nil {
+		return false
+	}
+	v, _ := flags[capability].(bool)
+	return v
 }
 
 func fail(e *Error) (int, []byte) {

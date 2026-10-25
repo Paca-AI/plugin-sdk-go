@@ -1,9 +1,11 @@
 package gitprovider_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	gp "github.com/Paca-AI/plugin-sdk-go/gitprovider"
@@ -82,4 +84,31 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+type panicProvider struct{ gp.Provider }
+
+func (panicProvider) Describe() gp.Info { panic("boom") }
+
+func TestDispatch_RecoversFromPanic(t *testing.T) {
+	status, body := gp.Dispatch(context.Background(), panicProvider{}, "describe", nil)
+	if status != 500 || strings.Contains(string(body), "boom") {
+		t.Fatalf("status %d body %s; want a generic 500", status, body)
+	}
+}
+
+// undeclared embeds a provider but reports the merge capability as off.
+type undeclared struct{ gp.Provider }
+
+func (u undeclared) Describe() gp.Info {
+	i := u.Provider.Describe()
+	i.Capabilities.Merge = false
+	return i
+}
+
+func TestDispatch_UndeclaredCapabilityIsUnsupported(t *testing.T) {
+	status, _ := gp.Dispatch(context.Background(), undeclared{fakeprovider.New()}, "merge_change_request", []byte(`{}`))
+	if status != 501 {
+		t.Fatalf("status %d; want 501 for an undeclared capability", status)
+	}
 }

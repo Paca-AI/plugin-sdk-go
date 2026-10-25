@@ -1,6 +1,7 @@
 package serve_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -49,5 +50,25 @@ func TestRegister_ErrorsCarryHTTPStatus(t *testing.T) {
 	})
 	if res.StatusCode != 404 {
 		t.Fatalf("want 404, got %d: %s", res.StatusCode, res.BodyString())
+	}
+}
+
+type rateLimited struct{ gitprovider.Provider }
+
+func (rateLimited) GetIssue(context.Context, gitprovider.IssueRequest) (gitprovider.Issue, error) {
+	return gitprovider.Issue{}, gitprovider.RateLimited(7, "slow down")
+}
+
+func TestRegister_RateLimitSetsRetryAfter(t *testing.T) {
+	tc := setup(t, rateLimited{fakeprovider.New()})
+	res := tc.Call("POST", "/_git/get_issue", plugintest.Request{
+		PathParams: map[string]string{"op": "get_issue"},
+		Body:       []byte(`{}`),
+	})
+	if res.StatusCode != 429 {
+		t.Fatalf("want 429, got %d: %s", res.StatusCode, res.BodyString())
+	}
+	if got := res.Headers["Retry-After"]; got != "7" {
+		t.Fatalf("Retry-After = %q, want 7", got)
 	}
 }

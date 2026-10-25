@@ -21,10 +21,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	gp "github.com/Paca-AI/plugin-sdk-go/gitprovider"
 )
@@ -87,7 +89,8 @@ type Fixtures struct {
 	BadSignature gp.WebhookRequest
 
 	// Secrets are values that must never appear in events or error messages
-	// (webhook secrets, stored tokens).
+	// (webhook secrets, stored tokens). List every token the harness uses: the
+	// suite can only detect leaks of values it is told about.
 	Secrets []string
 
 	// Setup: a host and the parameters that complete setup successfully.
@@ -97,10 +100,15 @@ type Fixtures struct {
 	// Writes run only when true (point real providers at a sandbox).
 	MutationsAllowed bool
 	NewBranchHead    string // an existing branch with no open change request
-	BaseBranch       string
-	File             struct{ Ref, Path string }
-	SearchQuery      string // a query that matches at least one file
-	Reviewer         string // a login that can be requested as reviewer
+	// DraftBranchHead and IdempotentBranchHead are further existing branches
+	// with no open change request, used for the draft and idempotency checks.
+	// Defaults ("draft-branch", "idem-branch") suit the fake backend only.
+	DraftBranchHead      string
+	IdempotentBranchHead string
+	BaseBranch           string
+	File                 struct{ Ref, Path string }
+	SearchQuery          string // a query that matches at least one file
+	Reviewer             string // a login that can be requested as reviewer
 
 	// AccessGrantParams are the callback parameters that complete an access
 	// grant started by BeginAccessGrant (providers declaring AccessGrants).
@@ -161,9 +169,16 @@ func noLeak(t *testing.T, f Fixtures, text string) {
 	}
 }
 
+func orDefault(v, def string) string {
+	if v != "" {
+		return v
+	}
+	return def
+}
+
 func truncate(s string) string {
 	if len(s) > 120 {
-		return s[:120] + "…"
+		return strings.ToValidUTF8(s[:120], "") + "…"
 	}
 	return s
 }
@@ -264,6 +279,7 @@ func testDescribe(t *testing.T, h Harness) {
 	check("reactions", c.Reactions, impl.Reactions)
 	check("webhook_management", c.WebhookManagement, impl.WebhookManagement)
 	check("identity_deletion", c.IdentityDeletion, impl.IdentityDeletion)
+	check("access_grants", c.AccessGrants, impl.AccessGrants)
 }
 
 // ── wire ─────────────────────────────────────────────────────────────────────
@@ -287,6 +303,19 @@ func testWire(t *testing.T, h Harness) {
 	status, body = gp.Dispatch(ctx(), p, "no_such_operation", nil)
 	if status != gp.CodeUnsupported.HTTPStatus() || !strings.Contains(string(body), string(gp.CodeUnsupported)) {
 		t.Errorf("unknown operation: status %d body %s, want unsupported", status, body)
+	}
+
+	// An empty body is a validation error, not a call with a zero-value request.
+	for _, op := range gp.Operations() {
+		if op.Name == "describe" {
+			continue
+		}
+		_, body := gp.Dispatch(ctx(), p, op.Name, nil)
+		var e gp.Envelope
+		if err := json.Unmarshal(body, &e); err != nil || e.OK || e.Error == nil ||
+			(e.Error.Code != gp.CodeValidation && e.Error.Code != gp.CodeUnsupported) {
+			t.Errorf("%s with an empty body: %s, want validation or unsupported", op.Name, body)
+		}
 	}
 
 	// Every operation survives a malformed body without panicking and says so
@@ -383,7 +412,7 @@ func testRepositories(t *testing.T, h Harness) {
 		if r.Ref.Host == "" || r.Ref.FullPath == "" || r.Ref.CloneURL == "" {
 			t.Errorf("repository %+v needs host, full_path and clone_url", r.Ref)
 		}
-		if strings.Contains(r.Ref.CloneURL, "@") {
+		if u, err := url.Parse(r.Ref.CloneURL); err == nil && u.User != nil {
 			t.Errorf("clone_url %q must be credential-free", r.Ref.CloneURL)
 		}
 	}
@@ -624,6 +653,8 @@ func testCredentials(t *testing.T, h Harness) {
 				t.Error("ephemeral credentials must carry ExpiresAt")
 			} else if d := time.Until(c.ExpiresAt); d <= 0 || d > 65*time.Minute {
 				t.Errorf("ephemeral credential lifetime %v is outside (0, 65m]", d)
+			} else if d > 10*time.Minute {
+				t.Errorf("ephemeral credential lifetime %v exceeds the requested TTL of 5m (10m allowed for clock skew)", d)
 			}
 		}
 	}
@@ -730,7 +761,7 @@ func testReads(t *testing.T, h Harness) {
 		if err != nil {
 			t.Fatalf("GetDiff with MaxBytes: %v", err)
 		}
-		if len(cut.Text) > 10 || !cut.Truncated {
+		if len(cut.Text) > 10 || !cut.Truncated || !utf8.ValidString(cut.Text) {
 			t.Errorf("MaxBytes=10 returned %d bytes truncated=%v; want <=10 and truncated (silent truncation hides content)", len(cut.Text), cut.Truncated)
 		}
 	}
@@ -778,7 +809,7 @@ func testReads(t *testing.T, h Harness) {
 			t.Errorf("GetCheckLogs: %v empty=%v", err, logs.Text == "")
 		}
 		tail, err := p.GetCheckLogs(ctx(), gp.CheckLogsRequest{Target: tg, CheckID: f.FailingCheckID, TailBytes: 5})
-		if err != nil || len(tail.Text) > 5 || (len(logs.Text) > 5 && !tail.Truncated) {
+		if err != nil || len(tail.Text) > 5 || !utf8.ValidString(tail.Text) || (len(logs.Text) > 5 && !tail.Truncated) {
 			t.Errorf("tail-limited logs: %q truncated=%v err=%v", tail.Text, tail.Truncated, err)
 		}
 		_, err = p.GetCheckLogs(ctx(), gp.CheckLogsRequest{Target: tg, CheckID: "no-such-check"})
@@ -917,14 +948,14 @@ func testWrites(t *testing.T, h Harness) {
 		_, err = p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Head: f.NewBranchHead, Base: f.BaseBranch})
 		mustCode(t, f, err, gp.CodeValidation)
 		if caps.DraftChangeRequests {
-			d, err := p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Title: "Draft", Head: "draft-branch", Base: f.BaseBranch, Draft: true})
+			d, err := p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Title: "Draft", Head: orDefault(f.DraftBranchHead, "draft-branch"), Base: f.BaseBranch, Draft: true})
 			if err != nil || !d.Draft {
 				t.Errorf("draft change request: %+v %v", d, err)
 			}
 		}
 		if caps.IdempotentWrites {
-			a, errA := p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Title: "Idem", Head: "idem-branch", Base: f.BaseBranch, IdempotencyKey: "k1"})
-			b, errB := p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Title: "Idem", Head: "idem-branch", Base: f.BaseBranch, IdempotencyKey: "k1"})
+			a, errA := p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Title: "Idem", Head: orDefault(f.IdempotentBranchHead, "idem-branch"), Base: f.BaseBranch, IdempotencyKey: "k1"})
+			b, errB := p.OpenChangeRequest(ctx(), gp.OpenCRRequest{Target: tg, Title: "Idem", Head: orDefault(f.IdempotentBranchHead, "idem-branch"), Base: f.BaseBranch, IdempotencyKey: "k1"})
 			if errA != nil || errB != nil || a.Number != b.Number {
 				t.Errorf("idempotent open: %v %v numbers %q/%q", errA, errB, a.Number, b.Number)
 			}
