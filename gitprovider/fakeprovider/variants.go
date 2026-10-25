@@ -41,13 +41,30 @@ func New() *Full {
 	})}
 }
 
-// validBranchName reports whether name is acceptable as a branch name (the
-// fake's rule is git's core one: no spaces or ref-special characters).
+// validBranchName reports whether name is acceptable as a branch name. It
+// follows git's check-ref-format rules closely enough for the fake: no control
+// characters, spaces or ref-special characters, no empty, leading-dash,
+// leading-dot or trailing-dot/slash components, no "..", "//", "@{" or ".lock".
 func validBranchName(name string) bool {
-	if name == "" || strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") || strings.Contains(name, "..") || strings.HasSuffix(name, ".lock") {
+	if name == "" || name == "@" || strings.HasPrefix(name, "-") || strings.HasPrefix(name, "/") ||
+		strings.HasSuffix(name, "/") || strings.HasSuffix(name, ".") ||
+		strings.Contains(name, "..") || strings.Contains(name, "//") || strings.Contains(name, "@{") {
 		return false
 	}
-	return !strings.ContainsAny(name, " ~^:?*[\\")
+	for _, r := range name {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	if strings.ContainsAny(name, " ~^:?*[\\") {
+		return false
+	}
+	for _, part := range strings.Split(name, "/") {
+		if strings.HasPrefix(part, ".") || strings.HasSuffix(part, ".lock") {
+			return false
+		}
+	}
+	return true
 }
 
 // GetBranch implements gp.BranchManager.
@@ -57,6 +74,9 @@ func (f *Full) GetBranch(_ context.Context, req gp.GetBranchRequest) (gp.BranchI
 	r, err := f.repo(req.Target)
 	if err != nil {
 		return gp.BranchInfo{}, err
+	}
+	if req.Name == "" {
+		return gp.BranchInfo{}, gp.Errorf(gp.CodeValidation, "branch name is required")
 	}
 	sha, ok := r.branches[req.Name]
 	if !ok {
@@ -76,19 +96,21 @@ func (f *Full) CreateBranch(_ context.Context, req gp.CreateBranchRequest) (gp.B
 	if !validBranchName(req.Name) {
 		return gp.BranchInfo{}, gp.Errorf(gp.CodeValidation, "invalid branch name")
 	}
-	from := req.From
-	if from == "" {
-		from = r.ref.DefaultBranch
-	}
-	sha, ok := r.branches[from]
-	if !ok {
-		return gp.BranchInfo{}, gp.Errorf(gp.CodeNotFound, "source branch not found")
-	}
-	if _, taken := r.branches[req.Name]; taken {
-		return gp.BranchInfo{}, gp.Errorf(gp.CodeConflict, "branch already exists")
-	}
-	r.branches[req.Name] = sha
-	return gp.BranchInfo{Name: req.Name, SHA: sha, URL: "https://" + Host + "/" + r.ref.FullPath + "/tree/" + req.Name}, nil
+	return once(f.Core, idemKey("branch", req.IdempotencyKey), func() (gp.BranchInfo, error) {
+		from := req.From
+		if from == "" {
+			from = r.ref.DefaultBranch
+		}
+		sha, ok := r.branches[from]
+		if !ok {
+			return gp.BranchInfo{}, gp.Errorf(gp.CodeNotFound, "source branch not found")
+		}
+		if _, taken := r.branches[req.Name]; taken {
+			return gp.BranchInfo{}, gp.Errorf(gp.CodeConflict, "branch already exists")
+		}
+		r.branches[req.Name] = sha
+		return gp.BranchInfo{Name: req.Name, SHA: sha, URL: "https://" + Host + "/" + r.ref.FullPath + "/tree/" + req.Name}, nil
+	})
 }
 
 // ResolveThread implements gp.ThreadResolver.

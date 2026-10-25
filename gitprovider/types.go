@@ -958,6 +958,9 @@ type GetBranchRequest struct {
 }
 
 // CreateBranchRequest creates a branch from another branch (or the default).
+// With IdempotencyKey, and when the provider declares IdempotentWrites, a retry
+// of a call that already succeeded returns the original result instead of
+// conflict.
 type CreateBranchRequest struct {
 	Target         Target `json:"target"`
 	Name           string `json:"name"`

@@ -105,10 +105,14 @@ type Fixtures struct {
 	// Defaults ("draft-branch", "idem-branch") suit the fake backend only.
 	DraftBranchHead      string
 	IdempotentBranchHead string
-	BaseBranch           string
-	File                 struct{ Ref, Path string }
-	SearchQuery          string // a query that matches at least one file
-	Reviewer             string // a login that can be requested as reviewer
+	// NewBranchName is a branch name CreateBranch can create (providers
+	// declaring Branches). Default "paca/conformance". The suite never deletes
+	// it, so a sandbox run needs a fresh name each time or manual cleanup.
+	NewBranchName string
+	BaseBranch    string
+	File          struct{ Ref, Path string }
+	SearchQuery   string // a query that matches at least one file
+	Reviewer      string // a login that can be requested as reviewer
 
 	// AccessGrantParams are the callback parameters that complete an access
 	// grant started by BeginAccessGrant (providers declaring AccessGrants).
@@ -553,6 +557,11 @@ func checkEventInvariants(t *testing.T, f Fixtures, caps gp.Capabilities, ev gp.
 		}
 		if ev.Subject.Number == "" {
 			t.Error("subject number is required")
+		}
+	}
+	if ev.Subject != nil && ev.Subject.URL != "" {
+		if u, err := url.Parse(ev.Subject.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			t.Errorf("subject url %q must be an absolute http(s) URL", ev.Subject.URL)
 		}
 	}
 	if ev.Kind == gp.EventCheck && (ev.Check == nil || ev.Check.Conclusion == "") {
@@ -1075,28 +1084,40 @@ func testOptionalWrites(t *testing.T, h Harness) {
 		t.Run("branches", func(t *testing.T) {
 			p := h.New(t)
 			bm := p.(gp.BranchManager)
-			def := tg.Repo.DefaultBranch
+			def := orDefault(tg.Repo.DefaultBranch, f.BaseBranch)
+			name := orDefault(f.NewBranchName, "paca/conformance")
 			base, err := bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: def})
 			if err != nil || base.Name != def || base.SHA == "" {
 				t.Fatalf("GetBranch(default): %+v %v", base, err)
 			}
 			_, err = bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: "no-such-branch"})
 			mustCode(t, f, err, gp.CodeNotFound)
+			_, err = bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg})
+			mustCode(t, f, err, gp.CodeValidation)
 
-			made, err := bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "paca/conformance"})
-			if err != nil || made.Name != "paca/conformance" || made.SHA != base.SHA {
+			made, err := bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: name})
+			if err != nil || made.Name != name || made.SHA != base.SHA {
 				t.Fatalf("CreateBranch from the default branch: %+v %v (want sha %s)", made, err, base.SHA)
 			}
-			got, err := bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: "paca/conformance"})
+			got, err := bm.GetBranch(ctx(), gp.GetBranchRequest{Target: tg, Name: name})
 			if err != nil || got.SHA != made.SHA {
 				t.Errorf("created branch not visible: %+v %v", got, err)
 			}
-			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "paca/conformance"})
+			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: name})
 			mustCode(t, f, err, gp.CodeConflict)
-			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "paca/from-missing", From: "no-such-branch"})
+			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: name + "-from-missing", From: "no-such-branch"})
 			mustCode(t, f, err, gp.CodeNotFound)
-			_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: "bad name~^"})
-			mustCode(t, f, err, gp.CodeValidation)
+			for _, bad := range []string{"bad name~^", "-leading-dash", "a..b", "trailing."} {
+				_, err = bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: bad})
+				mustCode(t, f, err, gp.CodeValidation)
+			}
+			if caps.IdempotentWrites {
+				a, errA := bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: name + "-idem", IdempotencyKey: "b1"})
+				b, errB := bm.CreateBranch(ctx(), gp.CreateBranchRequest{Target: tg, Name: name + "-idem", IdempotencyKey: "b1"})
+				if errA != nil || errB != nil || a != b {
+					t.Errorf("idempotent branch create: %+v %v / %+v %v", a, errA, b, errB)
+				}
+			}
 		})
 	}
 	if caps.Labels {

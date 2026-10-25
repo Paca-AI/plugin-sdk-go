@@ -173,3 +173,29 @@ func (r *reusableGrant) CompleteAccessGrant(ctx context.Context, req gp.Complete
 func TestMutant_AccessGrantStateIsReusable(t *testing.T) {
 	run(t, func() gp.Provider { return &reusableGrant{Full: fakeprovider.New()} })
 }
+
+// A branch create that forgives an existing name hides lost races.
+type branchOverwrite struct{ *fakeprovider.Full }
+
+func (b branchOverwrite) CreateBranch(ctx context.Context, r gp.CreateBranchRequest) (gp.BranchInfo, error) {
+	info, err := b.Full.CreateBranch(ctx, r)
+	var pe *gp.Error
+	if errors.As(err, &pe) && pe.Code == gp.CodeConflict {
+		return b.Full.GetBranch(ctx, gp.GetBranchRequest{Target: r.Target, Name: r.Name})
+	}
+	return info, err
+}
+func TestMutant_BranchCreateForgivesExisting(t *testing.T) {
+	run(t, func() gp.Provider { return branchOverwrite{fakeprovider.New()} })
+}
+
+// A branch create that ignores From always branches off the default.
+type branchIgnoresFrom struct{ *fakeprovider.Full }
+
+func (b branchIgnoresFrom) CreateBranch(ctx context.Context, r gp.CreateBranchRequest) (gp.BranchInfo, error) {
+	r.From = ""
+	return b.Full.CreateBranch(ctx, r)
+}
+func TestMutant_BranchCreateIgnoresFrom(t *testing.T) {
+	run(t, func() gp.Provider { return branchIgnoresFrom{fakeprovider.New()} })
+}
