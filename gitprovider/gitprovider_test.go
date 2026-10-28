@@ -126,4 +126,12 @@ func TestCapabilitiesProfile(t *testing.T) {
 	if got := c.Profile(gp.IdentityApp); got.CredentialModel != gp.CredentialEphemeral || got.WebhookScope != gp.WebhookApp || !got.AccessGrants {
 		t.Errorf("app profile = %+v", got)
 	}
+	// An unknown kind also takes the provider-wide values.
+	if got := c.Profile(""); got.Kind != "" || got.CredentialModel != gp.CredentialEphemeral || !got.AccessGrants {
+		t.Errorf("empty-kind profile = %+v", got)
+	}
+	// A kind entry can switch AccessGrants off against a provider-wide true.
+	if got := c.Profile(gp.IdentityToken); got.AccessGrants {
+		t.Errorf("token profile must override AccessGrants to false: %+v", got)
+	}
 }

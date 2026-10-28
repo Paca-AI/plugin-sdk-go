@@ -286,6 +286,18 @@ func testDescribe(t *testing.T, h Harness) {
 			t.Logf("note: %s identities use %s-scoped webhooks without WebhookManagement: users must register webhooks by hand", kp.Kind, kp.WebhookScope)
 		}
 	}
+	if k := h.Fixtures.IdentityKind; k != "" && !declared[k] {
+		t.Errorf("Fixtures.IdentityKind %q is not in IdentityKinds; Profile would silently fall back to the provider-wide values", k)
+	}
+	if c.WebhookManagement {
+		managed := c.WebhookScope != gp.WebhookApp
+		for _, kp := range c.Kinds {
+			managed = managed || kp.WebhookScope != gp.WebhookApp
+		}
+		if !managed {
+			t.Log("note: WebhookManagement is declared but every kind delivers app-level webhooks, so it is never exercised")
+		}
+	}
 	// A webhook the provider must manage itself implies it can manage it.
 	if c.WebhookScope != gp.WebhookApp && !c.WebhookManagement {
 		t.Log("note: repo/group-scoped webhooks without WebhookManagement mean users must register webhooks by hand")
@@ -1231,6 +1243,9 @@ func testOptionalWrites(t *testing.T, h Harness) {
 	}
 	// Webhooks are only managed for kinds that deliver them per repository or
 	// group; an app-level webhook has nothing to register.
+	if caps.WebhookManagement && caps.Profile(fixtureKind(f, caps)).WebhookScope == gp.WebhookApp {
+		t.Logf("skipping webhook-management: the fixture identity (%q) uses app-level webhooks; run the suite with a fixture of a repo/group-scoped kind to cover it", fixtureKind(f, caps))
+	}
 	if caps.WebhookManagement && caps.Profile(fixtureKind(f, caps)).WebhookScope != gp.WebhookApp {
 		t.Run("webhook-management", func(t *testing.T) {
 			p := h.New(t)
