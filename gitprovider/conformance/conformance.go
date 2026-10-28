@@ -65,6 +65,9 @@ type WebhookCase struct {
 // Fixtures describe the backend's seed data.
 type Fixtures struct {
 	Identity gp.IdentityRef
+	// IdentityKind is the kind of Identity, for providers that support several
+	// (their per-kind profiles differ). Empty: the first of IdentityKinds.
+	IdentityKind gp.IdentityKind
 	// Repo is a repository the identity can see, holding the change request,
 	// issue and thread below.
 	Repo          gp.RepoRef
@@ -255,6 +258,32 @@ func testDescribe(t *testing.T, h Harness) {
 	for _, g := range c.CIConfigGlobs {
 		if strings.TrimSpace(g) == "" {
 			t.Error("CIConfigGlobs must not contain empty patterns")
+		}
+	}
+	declared := map[gp.IdentityKind]bool{}
+	for _, k := range c.IdentityKinds {
+		declared[k] = true
+	}
+	profiled := map[gp.IdentityKind]bool{}
+	for _, kp := range c.Kinds {
+		switch {
+		case !declared[kp.Kind]:
+			t.Errorf("Kinds names %q, which is not in IdentityKinds", kp.Kind)
+		case profiled[kp.Kind]:
+			t.Errorf("Kinds lists %q twice", kp.Kind)
+		}
+		profiled[kp.Kind] = true
+		if kp.CredentialModel != gp.CredentialEphemeral && kp.CredentialModel != gp.CredentialStatic {
+			t.Errorf("Kinds[%s].CredentialModel %q is invalid", kp.Kind, kp.CredentialModel)
+		}
+		if kp.WebhookScope != gp.WebhookApp && kp.WebhookScope != gp.WebhookGroup && kp.WebhookScope != gp.WebhookRepo {
+			t.Errorf("Kinds[%s].WebhookScope %q is invalid", kp.Kind, kp.WebhookScope)
+		}
+		if kp.AccessGrants && !c.AccessGrants {
+			t.Errorf("Kinds[%s] needs access grants but the provider does not declare the access_grants capability", kp.Kind)
+		}
+		if kp.WebhookScope != gp.WebhookApp && !c.WebhookManagement {
+			t.Logf("note: %s identities use %s-scoped webhooks without WebhookManagement: users must register webhooks by hand", kp.Kind, kp.WebhookScope)
 		}
 	}
 	// A webhook the provider must manage itself implies it can manage it.
@@ -643,6 +672,17 @@ func checkWant(t *testing.T, ev gp.Event, w Want, caps gp.Capabilities) {
 	}
 }
 
+// fixtureKind is the identity kind the fixtures' identity has.
+func fixtureKind(f Fixtures, caps gp.Capabilities) gp.IdentityKind {
+	if f.IdentityKind != "" {
+		return f.IdentityKind
+	}
+	if len(caps.IdentityKinds) > 0 {
+		return caps.IdentityKinds[0]
+	}
+	return ""
+}
+
 // ── credentials ──────────────────────────────────────────────────────────────
 
 func testCredentials(t *testing.T, h Harness) {
@@ -658,7 +698,7 @@ func testCredentials(t *testing.T, h Harness) {
 		if c.Secret == "" || c.Username == "" {
 			t.Errorf("credential needs username and secret: username=%q secret-empty=%v", c.Username, c.Secret == "")
 		}
-		if caps.CredentialModel == gp.CredentialEphemeral {
+		if caps.Profile(fixtureKind(f, caps)).CredentialModel == gp.CredentialEphemeral {
 			if c.ExpiresAt.IsZero() {
 				t.Error("ephemeral credentials must carry ExpiresAt")
 			} else if d := time.Until(c.ExpiresAt); d <= 0 || d > 65*time.Minute {
@@ -1189,7 +1229,9 @@ func testOptionalWrites(t *testing.T, h Harness) {
 			mustCode(t, f, err, gp.CodeValidation)
 		})
 	}
-	if caps.WebhookManagement {
+	// Webhooks are only managed for kinds that deliver them per repository or
+	// group; an app-level webhook has nothing to register.
+	if caps.WebhookManagement && caps.Profile(fixtureKind(f, caps)).WebhookScope != gp.WebhookApp {
 		t.Run("webhook-management", func(t *testing.T) {
 			p := h.New(t)
 			w := p.(gp.WebhookManager)

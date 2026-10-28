@@ -112,3 +112,18 @@ func TestDispatch_UndeclaredCapabilityIsUnsupported(t *testing.T) {
 		t.Fatalf("status %d; want 501 for an undeclared capability", status)
 	}
 }
+
+func TestCapabilitiesProfile(t *testing.T) {
+	c := gp.Capabilities{
+		IdentityKinds: []gp.IdentityKind{gp.IdentityApp, gp.IdentityToken}, CredentialModel: gp.CredentialEphemeral,
+		WebhookScope: gp.WebhookApp, AccessGrants: true,
+		Kinds: []gp.KindProfile{{Kind: gp.IdentityToken, CredentialModel: gp.CredentialStatic, WebhookScope: gp.WebhookRepo}},
+	}
+	if got := c.Profile(gp.IdentityToken); got.CredentialModel != gp.CredentialStatic || got.WebhookScope != gp.WebhookRepo || got.AccessGrants {
+		t.Errorf("token profile = %+v", got)
+	}
+	// A kind without an entry takes the provider-wide values.
+	if got := c.Profile(gp.IdentityApp); got.CredentialModel != gp.CredentialEphemeral || got.WebhookScope != gp.WebhookApp || !got.AccessGrants {
+		t.Errorf("app profile = %+v", got)
+	}
+}
