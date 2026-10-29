@@ -98,6 +98,7 @@ var operations = []opEntry{
 	optional("ensure_webhook", "webhook_management", WebhookManager.EnsureWebhook),
 	optional("remove_webhook", "webhook_management", WebhookManager.RemoveWebhook),
 	optional("delete_identity", "identity_deletion", IdentityDeleter.DeleteIdentity),
+	optional("describe_identity", "identity_description", IdentityDescriber.DescribeIdentity),
 	optional("begin_access_grant", "access_grants", AccessGranter.BeginAccessGrant),
 	optional("complete_access_grant", "access_grants", AccessGranter.CompleteAccessGrant),
 }

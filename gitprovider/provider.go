@@ -114,6 +114,18 @@ type IdentityDeleter interface {
 	DeleteIdentity(ctx context.Context, req DeleteIdentityRequest) (Empty, error)
 }
 
+// IdentityDescriber describes an existing identity (capability
+// IdentityDescription). DescribeIdentity returns the same [Identity] that
+// CompleteIdentitySetup returned, or would return, for it: Ref.ID equal to the
+// request's, Ref.Handle set to the login the identity acts as, a DisplayName
+// and, for expiring credentials, ExpiresAt. It may call the platform and may
+// update the provider's own record of the identity; it must not start a setup
+// step (Next is ignored). An identity the provider does not know returns
+// not_found; one whose credentials no longer work returns forbidden.
+type IdentityDescriber interface {
+	DescribeIdentity(ctx context.Context, req DescribeIdentityRequest) (Identity, error)
+}
+
 // AccessGranter lets a user grant an identity access to one more account or
 // organization (capability AccessGrants).
 type AccessGranter interface {
@@ -147,6 +159,7 @@ func Implemented(p Provider) Capabilities {
 	_, c.Branches = p.(BranchManager)
 	_, c.WebhookManagement = p.(WebhookManager)
 	_, c.IdentityDeletion = p.(IdentityDeleter)
+	_, c.IdentityDescription = p.(IdentityDescriber)
 	_, c.AccessGrants = p.(AccessGranter)
 	return c
 }

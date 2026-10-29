@@ -149,6 +149,17 @@ func TestMutant_SecretInEvent(t *testing.T) {
 	run(t, func() gp.Provider { return secretInEvent{fakeprovider.New()} })
 }
 
+type anonymous struct{ *fakeprovider.Full }
+
+func (a anonymous) DescribeIdentity(ctx context.Context, r gp.DescribeIdentityRequest) (gp.Identity, error) {
+	id, err := a.Full.DescribeIdentity(ctx, r)
+	id.Ref.Handle = r.Identity.Handle // echoes the request: never fills an empty handle
+	return id, err
+}
+func TestMutant_DescribeIdentityKeepsEmptyHandle(t *testing.T) {
+	run(t, func() gp.Provider { return anonymous{fakeprovider.New()} })
+}
+
 type mergeNoGuard struct{ *fakeprovider.Full }
 
 func (m mergeNoGuard) MergeChangeRequest(ctx context.Context, r gp.MergeRequest) (gp.MergeResult, error) {

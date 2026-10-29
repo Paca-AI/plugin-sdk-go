@@ -139,6 +139,7 @@ func Run(t *testing.T, h Harness) {
 	t.Run("reads", func(t *testing.T) { testReads(t, h) })
 	t.Run("unsupported", func(t *testing.T) { testUnsupported(t, h) })
 	t.Run("access-grants", func(t *testing.T) { testAccessGrants(t, h) })
+	t.Run("describe-identity", func(t *testing.T) { testDescribeIdentity(t, h) })
 	if h.Fixtures.MutationsAllowed {
 		t.Run("writes", func(t *testing.T) { testWrites(t, h) })
 		t.Run("optional-writes", func(t *testing.T) { testOptionalWrites(t, h) })
@@ -325,6 +326,7 @@ func testDescribe(t *testing.T, h Harness) {
 	check("reactions", c.Reactions, impl.Reactions)
 	check("webhook_management", c.WebhookManagement, impl.WebhookManagement)
 	check("identity_deletion", c.IdentityDeletion, impl.IdentityDeletion)
+	check("identity_description", c.IdentityDescription, impl.IdentityDescription)
 	check("branches", c.Branches, impl.Branches)
 	check("access_grants", c.AccessGrants, impl.AccessGrants)
 }
@@ -964,6 +966,42 @@ func mustJSONMap(v any) map[string]any {
 	var m map[string]any
 	_ = json.Unmarshal([]byte(mustJSON(v)), &m)
 	return m
+}
+
+// ── describe identity ────────────────────────────────────────────────────────
+
+func testDescribeIdentity(t *testing.T, h Harness) {
+	f := h.Fixtures
+	p := h.New(t)
+	d, ok := p.(gp.IdentityDescriber)
+	if !p.Describe().Capabilities.IdentityDescription || !ok {
+		t.Skip("provider does not declare identity_description")
+	}
+	// Core calls it for identities it holds without a handle, so ask without one.
+	ref := gp.IdentityRef{ID: f.Identity.ID, ProviderRef: f.Identity.ProviderRef}
+	id, err := d.DescribeIdentity(ctx(), gp.DescribeIdentityRequest{Identity: ref})
+	if err != nil {
+		t.Fatalf("DescribeIdentity: %v", err)
+	}
+	if id.Ref.ID != f.Identity.ID {
+		t.Errorf("Ref.ID = %q, want the requested %q: core stores the result on that identity", id.Ref.ID, f.Identity.ID)
+	}
+	if id.Ref.Handle == "" || id.DisplayName == "" || id.Host == "" || id.Kind == "" {
+		t.Errorf("incomplete identity: %+v", id)
+	}
+	if f.Identity.Handle != "" && id.Ref.Handle != f.Identity.Handle {
+		t.Errorf("Ref.Handle = %q, want %q", id.Ref.Handle, f.Identity.Handle)
+	}
+	noLeak(t, f, mustJSON(id))
+
+	// Asking again, now with the handle, describes the same identity.
+	again, err := d.DescribeIdentity(ctx(), gp.DescribeIdentityRequest{Identity: id.Ref})
+	if err != nil || again.Ref.ID != id.Ref.ID || again.Ref.Handle != id.Ref.Handle {
+		t.Errorf("DescribeIdentity is not stable: first %+v, then %+v %v", id, again, err)
+	}
+
+	_, err = d.DescribeIdentity(ctx(), gp.DescribeIdentityRequest{Identity: gp.IdentityRef{ID: "no-such-identity"}})
+	mustCode(t, f, err, gp.CodeNotFound, gp.CodeForbidden, gp.CodeValidation)
 }
 
 // ── access grants ────────────────────────────────────────────────────────────

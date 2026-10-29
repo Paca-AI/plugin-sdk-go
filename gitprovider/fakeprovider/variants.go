@@ -36,7 +36,7 @@ func New() *Full {
 		Triggers:           gp.AllTriggerKinds,
 		MultipleIdentities: true, IssueList: true,
 		ResolveThreads: true, FileRead: true, CodeSearch: true, Labels: true, ReviewerRequests: true, Assignees: true,
-		Merge: true, RerunChecks: true, Reactions: true, Branches: true, WebhookManagement: true, IdentityDeletion: true, AccessGrants: true,
+		Merge: true, RerunChecks: true, Reactions: true, Branches: true, WebhookManagement: true, IdentityDeletion: true, IdentityDescription: true, AccessGrants: true,
 		BatchReview: true, IdempotentWrites: true, HiddenMarkers: true, ForkChangeRequests: true, DraftChangeRequests: true,
 		CIConfigGlobs: []string{".fake-ci/**"},
 	})}
@@ -372,6 +372,15 @@ func (f *Full) DeleteIdentity(_ context.Context, req gp.DeleteIdentityRequest) (
 	defer f.mu.Unlock()
 	f.Deleted = append(f.Deleted, req.Identity.ID)
 	return gp.Empty{}, nil
+}
+
+// DescribeIdentity implements gp.IdentityDescriber: the fake knows one
+// identity, and describes it whether or not the request carries its handle.
+func (f *Full) DescribeIdentity(_ context.Context, req gp.DescribeIdentityRequest) (gp.Identity, error) {
+	if req.Identity.ID != IdentityID {
+		return gp.Identity{}, gp.Errorf(gp.CodeNotFound, "identity not found")
+	}
+	return seedIdentity(), nil
 }
 
 // BeginAccessGrant implements gp.AccessGranter.
