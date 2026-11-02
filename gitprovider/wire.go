@@ -83,6 +83,7 @@ var operations = []opEntry{
 	required("reply_thread", Provider.ReplyThread),
 	required("submit_review", Provider.SubmitReview),
 	required("set_status", Provider.SetStatus),
+	optional("list_issues", "issue_list", IssueLister.ListIssues),
 	optional("resolve_thread", "resolve_threads", ThreadResolver.ResolveThread),
 	optional("get_file", "file_read", FileReader.GetFile),
 	optional("search_code", "code_search", CodeSearcher.SearchCode),

@@ -313,6 +313,7 @@ func testDescribe(t *testing.T, h Harness) {
 			t.Errorf("optional interface for %s is implemented but the capability is not declared (core would never call it)", name)
 		}
 	}
+	check("issue_list", c.IssueList, impl.IssueList)
 	check("resolve_threads", c.ResolveThreads, impl.ResolveThreads)
 	check("file_read", c.FileRead, impl.FileRead)
 	check("code_search", c.CodeSearch, impl.CodeSearch)
@@ -885,6 +886,37 @@ func testReads(t *testing.T, h Harness) {
 
 	// Optional reads, only when declared.
 	caps := p.Describe().Capabilities
+	if lister, ok := p.(gp.IssueLister); ok && caps.IssueList {
+		seen, cursors := map[string]bool{}, map[string]bool{}
+		cursor := ""
+		for {
+			page, err := lister.ListIssues(ctx(), gp.ListIssuesRequest{Target: tg, State: "all", Cursor: cursor})
+			if err != nil {
+				t.Fatalf("ListIssues: %v", err)
+			}
+			for _, issue := range page.Items {
+				if issue.Number == "" || seen[issue.Number] || issue.Title == "" || issue.URL == "" || (issue.State != "open" && issue.State != "closed") {
+					t.Errorf("invalid or duplicate issue: %+v", issue)
+				}
+				seen[issue.Number] = true
+			}
+			if page.NextCursor == "" {
+				break
+			}
+			if cursors[page.NextCursor] || len(cursors) >= 100 {
+				t.Fatal("ListIssues pagination did not terminate")
+			}
+			cursors[page.NextCursor] = true
+			cursor = page.NextCursor
+		}
+		if f.IssueNumber != "" && !seen[f.IssueNumber] {
+			t.Errorf("ListIssues did not return fixture issue %q", f.IssueNumber)
+		}
+		if f.InvisibleRepo.FullPath != "" {
+			_, err := lister.ListIssues(ctx(), gp.ListIssuesRequest{Target: gp.Target{Identity: f.Identity, Repo: f.InvisibleRepo}})
+			mustCode(t, f, err, gp.CodeNotFound, gp.CodeForbidden)
+		}
+	}
 	if fr, ok := p.(gp.FileReader); ok && caps.FileRead && f.File.Path != "" {
 		file, err := fr.GetFile(ctx(), gp.FileRequest{Target: tg, Ref: f.File.Ref, Path: f.File.Path})
 		if err != nil || len(file.Content) == 0 {

@@ -42,6 +42,25 @@ func TestRegister_DescribeOverRoute(t *testing.T) {
 	}
 }
 
+func TestRegister_ListIssuesOverRoute(t *testing.T) {
+	f := fakeprovider.Fixtures()
+	body, err := json.Marshal(gitprovider.ListIssuesRequest{Target: gitprovider.Target{Identity: f.Identity, Repo: f.Repo}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := setup(t, fakeprovider.New()).Call("POST", "/_git/list_issues", plugintest.Request{
+		PathParams: map[string]string{"op": "list_issues"}, Body: body,
+	})
+	var env gitprovider.Envelope
+	if err := json.Unmarshal(res.Body, &env); err != nil || res.StatusCode != 200 || !env.OK {
+		t.Fatalf("list issues: status %d body %s err %v", res.StatusCode, res.BodyString(), err)
+	}
+	var page gitprovider.IssuePage
+	if err := json.Unmarshal(env.Result, &page); err != nil || len(page.Items) != 1 || page.Items[0].Number != f.IssueNumber {
+		t.Fatalf("issue page: %+v err=%v", page, err)
+	}
+}
+
 func TestRegister_ErrorsCarryHTTPStatus(t *testing.T) {
 	tc := setup(t, fakeprovider.New())
 	res := tc.Call("POST", "/_git/get_change_request", plugintest.Request{

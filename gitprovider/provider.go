@@ -52,6 +52,11 @@ type Provider interface {
 // set the matching [Capabilities] flag; the conformance suite checks that the
 // two agree.
 
+// IssueLister lists repository issues (capability IssueList).
+type IssueLister interface {
+	ListIssues(ctx context.Context, req ListIssuesRequest) (IssuePage, error)
+}
+
 // ThreadResolver resolves and reopens review threads (capability ResolveThreads).
 type ThreadResolver interface {
 	ResolveThread(ctx context.Context, req ResolveThreadRequest) (Empty, error)
@@ -129,6 +134,7 @@ type BranchManager interface {
 // tooling can compare them with what [Info] declares.
 func Implemented(p Provider) Capabilities {
 	var c Capabilities
+	_, c.IssueList = p.(IssueLister)
 	_, c.ResolveThreads = p.(ThreadResolver)
 	_, c.FileRead = p.(FileReader)
 	_, c.CodeSearch = p.(CodeSearcher)

@@ -3,6 +3,7 @@ package fakeprovider
 import (
 	"context"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -33,8 +34,8 @@ func New() *Full {
 		IdentityKinds: []gp.IdentityKind{gp.IdentityApp, gp.IdentityBotUser}, CredentialModel: gp.CredentialEphemeral,
 		WebhookScope: gp.WebhookApp, StatusKind: gp.StatusCheckRun,
 		Triggers:           gp.AllTriggerKinds,
-		MultipleIdentities: true,
-		ResolveThreads:     true, FileRead: true, CodeSearch: true, Labels: true, ReviewerRequests: true, Assignees: true,
+		MultipleIdentities: true, IssueList: true,
+		ResolveThreads: true, FileRead: true, CodeSearch: true, Labels: true, ReviewerRequests: true, Assignees: true,
 		Merge: true, RerunChecks: true, Reactions: true, Branches: true, WebhookManagement: true, IdentityDeletion: true, AccessGrants: true,
 		BatchReview: true, IdempotentWrites: true, HiddenMarkers: true, ForkChangeRequests: true, DraftChangeRequests: true,
 		CIConfigGlobs: []string{".fake-ci/**"},
@@ -111,6 +112,49 @@ func (f *Full) CreateBranch(_ context.Context, req gp.CreateBranchRequest) (gp.B
 		r.branches[req.Name] = sha
 		return gp.BranchInfo{Name: req.Name, SHA: sha, URL: "https://" + Host + "/" + r.ref.FullPath + "/tree/" + req.Name}, nil
 	})
+}
+
+// ListIssues implements gp.IssueLister.
+func (f *Full) ListIssues(_ context.Context, req gp.ListIssuesRequest) (gp.IssuePage, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r, err := f.repo(req.Target)
+	if err != nil {
+		return gp.IssuePage{}, err
+	}
+	state := req.State
+	if state == "" {
+		state = "open"
+	}
+	if state != "open" && state != "closed" && state != "all" {
+		return gp.IssuePage{}, gp.Errorf(gp.CodeValidation, "invalid issue state")
+	}
+	start := 0
+	if req.Cursor != "" {
+		var err error
+		start, err = strconv.Atoi(req.Cursor)
+		if err != nil || start < 0 {
+			return gp.IssuePage{}, gp.Errorf(gp.CodeValidation, "invalid cursor")
+		}
+	}
+	items := []gp.Issue{}
+	for _, issue := range r.issues {
+		if state == "all" || issue.State == state {
+			items = append(items, *issue)
+		}
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Number < items[j].Number })
+	page := gp.IssuePage{Items: []gp.Issue{}}
+	if start < len(items) {
+		end := start + 2
+		if end < len(items) {
+			page.NextCursor = strconv.Itoa(end)
+		} else {
+			end = len(items)
+		}
+		page.Items = items[start:end]
+	}
+	return page, nil
 }
 
 // ResolveThread implements gp.ThreadResolver.
