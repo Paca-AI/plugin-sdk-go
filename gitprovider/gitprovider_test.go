@@ -2,9 +2,9 @@ package gitprovider_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -41,9 +41,11 @@ func TestAsError_NeverLeaksInternals(t *testing.T) {
 
 func TestOperationsTable(t *testing.T) {
 	// Every optional operation names a capability that exists in Capabilities.
-	raw, _ := json.Marshal(gp.Capabilities{})
-	var caps map[string]any
-	_ = json.Unmarshal(raw, &caps)
+	caps := map[string]bool{}
+	typ := reflect.TypeOf(gp.Capabilities{})
+	for i := 0; i < typ.NumField(); i++ {
+		caps[strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]] = true
+	}
 	seen := map[string]bool{}
 	for _, op := range gp.Operations() {
 		if seen[op.Name] {
@@ -58,7 +60,7 @@ func TestOperationsTable(t *testing.T) {
 	}
 	// Every capability that gates an operation is covered by the table, so a new
 	// optional interface cannot be added without a wire operation.
-	for _, flag := range []string{"resolve_threads", "file_read", "code_search", "labels", "reviewer_requests", "assignees", "merge", "rerun_checks", "reactions", "webhook_management", "identity_deletion", "access_grants"} {
+	for _, flag := range []string{"issue_list", "resolve_threads", "file_read", "code_search", "labels", "reviewer_requests", "assignees", "merge", "rerun_checks", "reactions", "webhook_management", "identity_deletion", "access_grants"} {
 		found := false
 		for _, op := range gp.Operations() {
 			if op.Capability == flag {

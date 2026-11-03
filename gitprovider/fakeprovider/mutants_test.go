@@ -73,6 +73,26 @@ func TestMutant_DishonestCapability(t *testing.T) {
 	run(t, func() gp.Provider { return dishonest{fakeprovider.New()} })
 }
 
+type noIssueList struct{ *fakeprovider.Full }
+
+func (n noIssueList) Describe() gp.Info {
+	i := n.Full.Describe()
+	i.Capabilities.IssueList = false
+	return i
+}
+func TestMutant_DishonestIssueList(t *testing.T) {
+	run(t, func() gp.Provider { return noIssueList{fakeprovider.New()} })
+}
+
+type emptyIssueList struct{ *fakeprovider.Full }
+
+func (n emptyIssueList) ListIssues(context.Context, gp.ListIssuesRequest) (gp.IssuePage, error) {
+	return gp.IssuePage{Items: []gp.Issue{}}, nil
+}
+func TestMutant_EmptyIssueList(t *testing.T) {
+	run(t, func() gp.Provider { return emptyIssueList{fakeprovider.New()} })
+}
+
 type noExpiry struct{ *fakeprovider.Full }
 
 func (n noExpiry) MintCredential(ctx context.Context, r gp.MintRequest) (gp.Credential, error) {
