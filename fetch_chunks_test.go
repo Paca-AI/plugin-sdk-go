@@ -86,3 +86,36 @@ func TestFetchWireShapes(t *testing.T) {
 		t.Fatalf("envelope decode: %+v", e)
 	}
 }
+
+func TestReadBodyChunks_RejectsBadAnnouncedSize(t *testing.T) {
+	never := func(string, int, int) (*fetchChunk, error) { t.Fatal("must not read"); return nil, nil }
+	for _, size := range []int{-1, maxFetchBodyBytes + 1} {
+		if _, err := readBodyChunks("h", size, never); !errors.Is(err, ErrResponseTooLarge) {
+			t.Errorf("size %d: err = %v, want ErrResponseTooLarge", size, err)
+		}
+	}
+}
+
+func TestReadBodyChunks_RejectsOverrun(t *testing.T) {
+	over := func(string, int, int) (*fetchChunk, error) { return &fetchChunk{Chunk: []byte("abcdef")}, nil }
+	if _, err := readBodyChunks("h", 5, over); err == nil || !strings.Contains(err.Error(), "more than the announced") {
+		t.Errorf("overrun must be reported: %v", err)
+	}
+}
+
+func TestReadBodyChunks_ShrinksOnNoData(t *testing.T) {
+	body := strings.Repeat("x", 50_000)
+	var calls []int
+	read := func(_ string, offset, limit int) (*fetchChunk, error) {
+		calls = append(calls, limit)
+		if limit > 20_000 {
+			return nil, errEmptyHostResponse("fetch")
+		}
+		end := min(offset+limit, len(body))
+		return &fetchChunk{Chunk: []byte(body[offset:end]), Done: end == len(body)}, nil
+	}
+	got, err := readBodyChunks("h", len(body), read)
+	if err != nil || got != body {
+		t.Fatalf("err=%v, equal=%v, calls=%v", err, got == body, calls)
+	}
+}

@@ -94,7 +94,8 @@ func RunAction(ptr, length int32) int64 {
 // export call replaces it. The host reads a result from whatever linear-memory
 // address it is given, so a result does not have to fit the fixed arena the host
 // allocates request data in; the Go heap does not move objects, so the address
-// stays valid until then.
+// stays valid until then. This relies on the runtime's GC being non-moving (true
+// of Go and TinyGo); a moving collector would invalidate the address handed out.
 var resultBuf []byte
 
 // packWASMResult returns result as the packed (ptr<<32)|len pair the host

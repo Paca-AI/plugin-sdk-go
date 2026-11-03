@@ -23,7 +23,7 @@ func TestHostResultError_PlainError(t *testing.T) {
 	if errors.Is(err, ErrResponseTooLarge) {
 		t.Fatalf("plain host error must not match ErrResponseTooLarge: %v", err)
 	}
-	if got, want := err.Error(), "plugin: fetch: fetch: domain not permitted by plugin manifest"; got != want {
+	if got, want := err.Error(), "plugin: fetch: domain not permitted by plugin manifest"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }

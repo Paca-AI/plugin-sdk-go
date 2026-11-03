@@ -3,6 +3,7 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // A fetch response whose envelope does not fit the plugin's host buffer is
@@ -19,6 +20,10 @@ const (
 	fetchChunkSize = 256 * 1024
 	// minFetchChunkSize is where retries stop shrinking the chunk.
 	minFetchChunkSize = 4 * 1024
+	// maxFetchBodyBytes caps the body size a host may announce, so a bad
+	// body_size becomes an error instead of an allocation that traps the
+	// guest. It sits above the host's own 50 MiB per-response cap.
+	maxFetchBodyBytes = 64 << 20
 )
 
 // fetchEnvelope is the paca.fetch response: a [FetchResponse], plus the
@@ -45,26 +50,35 @@ type chunkReader func(handle string, offset, limit int) (*fetchChunk, error)
 // the host buffer it halves the chunk size and retries, down to
 // minFetchChunkSize, so a plugin whose buffer is partly used still succeeds.
 func readBodyChunks(handle string, size int, read chunkReader) (string, error) {
-	body := make([]byte, 0, size)
+	if size < 0 || size > maxFetchBodyBytes {
+		return "", fmt.Errorf("plugin: fetch: %w: host announced a body of %d bytes (limit %d)", ErrResponseTooLarge, size, maxFetchBodyBytes)
+	}
+	var body strings.Builder
+	body.Grow(size)
 	limit := fetchChunkSize
 	for {
-		c, err := read(handle, len(body), limit)
+		c, err := read(handle, body.Len(), limit)
 		if err != nil {
-			if errors.Is(err, ErrResponseTooLarge) && limit > minFetchChunkSize {
+			// A reply that did not fit, or no data at all (an exhausted
+			// buffer on a host that cannot say so), may succeed smaller.
+			if (errors.Is(err, ErrResponseTooLarge) || errors.Is(err, errHostNoData)) && limit > minFetchChunkSize {
 				limit /= 2
 				continue
 			}
 			return "", err
 		}
-		body = append(body, c.Chunk...)
+		if body.Len()+len(c.Chunk) > size {
+			return "", fmt.Errorf("plugin: fetch: host sent more than the announced %d bytes", size)
+		}
+		body.Write(c.Chunk)
 		if c.Done {
-			if len(body) != size {
-				return "", fmt.Errorf("plugin: fetch: body is %d bytes, host announced %d", len(body), size)
+			if body.Len() != size {
+				return "", fmt.Errorf("plugin: fetch: body is %d bytes, host announced %d", body.Len(), size)
 			}
-			return string(body), nil
+			return body.String(), nil
 		}
 		if len(c.Chunk) == 0 {
-			return "", fmt.Errorf("plugin: fetch: host returned an empty chunk at offset %d of %d", len(body), size)
+			return "", fmt.Errorf("plugin: fetch: host returned an empty chunk at offset %d of %d", body.Len(), size)
 		}
 	}
 }
