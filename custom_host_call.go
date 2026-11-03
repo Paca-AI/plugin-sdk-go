@@ -45,7 +45,7 @@ func CallHostFunction(hostFn CustomHostImport, request any, response any) error 
 	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
 	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
 	if resLen == 0 {
-		return fmt.Errorf("plugin: custom host call: empty response from host")
+		return errEmptyHostResponse("custom host call")
 	}
 	resBytes := append([]byte(nil), wasmSlice(resPtr, resLen)...)
 	wasmResetAllocator()

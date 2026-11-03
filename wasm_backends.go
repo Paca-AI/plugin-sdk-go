@@ -11,12 +11,12 @@ import (
 
 // ── Memory management ─────────────────────────────────────────────────────────
 
-// mallocBuffer is a pre-allocated buffer for host-managed memory allocations.
-// The host writes request data into this buffer, and the response is later
-// packed into the same space — never both at once: wasm_exports.go resets
-// the allocator between reading the request and allocating the response, so
-// each phase gets the buffer's full capacity rather than splitting it. Sized
-// to match services/api's DefaultResourceLimits.MaxRequestBodyBytes
+// mallocBuffer is a pre-allocated buffer for host-managed memory allocations:
+// the host writes request data and host-function results into it. Results the
+// plugin returns are not placed here (see packWASMResult), so this only has to
+// hold what the host sends in, not what the plugin sends back. wasm_exports.go
+// resets the allocator between reading the request and handling it. Sized to
+// match services/api's DefaultResourceLimits.MaxRequestBodyBytes
 // (paca/services/api/internal/platform/plugin/runtime.go) — the host already
 // rejects any payload larger than that before ever attempting to write it
 // here, so this only needs to cover the same ceiling, not more. This buffer
@@ -84,15 +84,19 @@ func (b *wasmDBBackend) Query(sql string, params []any) (*DBQueryResult, error) 
 	)
 	resPtr, resLen, errPtr, errLen := decodeQuery2Output(outputBuf)
 	if errLen > 0 {
-		return nil, &hostError{string(wasmSlice(errPtr, errLen))}
+		msg := string(wasmSlice(errPtr, errLen))
+		wasmResetAllocator()
+		return nil, &hostError{msg}
 	}
 	if resLen == 0 {
 		return &DBQueryResult{}, nil
 	}
-	resBytes := wasmSlice(resPtr, resLen)
-
 	var result DBQueryResult
-	if err := json.Unmarshal(resBytes, &result); err != nil {
+	err = json.Unmarshal(wasmSlice(resPtr, resLen), &result)
+	// Unmarshal copies what it keeps, so release the host allocation now;
+	// otherwise results accumulate in the shared arena across calls.
+	wasmResetAllocator()
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -115,7 +119,9 @@ func (b *wasmDBBackend) Exec(sql string, params []any) (int64, error) {
 	errPtr := int32(uint32(outputBuf[8]) | uint32(outputBuf[9])<<8 | uint32(outputBuf[10])<<16 | uint32(outputBuf[11])<<24)
 	errLen := int32(uint32(outputBuf[12]) | uint32(outputBuf[13])<<8 | uint32(outputBuf[14])<<16 | uint32(outputBuf[15])<<24)
 	if errLen > 0 {
-		return 0, &hostError{string(wasmSlice(errPtr, errLen))}
+		msg := string(wasmSlice(errPtr, errLen))
+		wasmResetAllocator()
+		return 0, &hostError{msg}
 	}
 	return rowsAffected, nil
 }
@@ -138,7 +144,9 @@ func (b *wasmKVBackend) Get(key string) (string, bool) {
 	if valLen == 0 {
 		return "", false
 	}
-	return string(wasmSlice(valPtr, valLen)), true
+	val := string(wasmSlice(valPtr, valLen))
+	wasmResetAllocator()
+	return val, true
 }
 
 func (b *wasmKVBackend) Set(key, value string) {
@@ -170,7 +178,9 @@ func (b *wasmCacheBackend) Get(key string) (string, bool) {
 	if valLen == 0 {
 		return "", false
 	}
-	return string(wasmSlice(valPtr, valLen)), true
+	val := string(wasmSlice(valPtr, valLen))
+	wasmResetAllocator()
+	return val, true
 }
 
 func (b *wasmCacheBackend) Set(key, value string, ttl time.Duration) {
@@ -216,7 +226,9 @@ func (b *wasmConfigBackend) Get(key string) (string, bool) {
 	if valLen == 0 {
 		return "", false
 	}
-	return string(wasmSlice(valPtr, valLen)), true
+	val := string(wasmSlice(valPtr, valLen))
+	wasmResetAllocator()
+	return val, true
 }
 
 // ── WASM Permission backend ───────────────────────────────────────────────────
@@ -280,6 +292,9 @@ type FetchResponse struct {
 	Body    string            `json:"body"`
 	Headers map[string]string `json:"headers"`
 	Error   string            `json:"error"`
+	// Code is a machine-readable error classification set by newer hosts
+	// (e.g. "response_too_large"). Fetch maps it to a typed error.
+	Code string `json:"code,omitempty"`
 }
 
 // Fetch makes an outbound HTTP request via the paca.fetch host function.
@@ -290,16 +305,45 @@ func Fetch(method, rawURL string, headers map[string]string, body string) (*Fetc
 		URL     string            `json:"url"`
 		Headers map[string]string `json:"headers"`
 		Body    string            `json:"body"`
+		// Chunked tells the host it may return a body_handle (read via
+		// readBodyChunks) instead of response_too_large.
+		Chunked bool `json:"chunked"`
 	}{
 		Method:  method,
 		URL:     rawURL,
 		Headers: headers,
 		Body:    body,
+		Chunked: true,
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
+	resBytes, err := callFetchHost(reqJSON)
+	if err != nil {
+		return nil, err
+	}
+	var env fetchEnvelope
+	if err := json.Unmarshal(resBytes, &env); err != nil {
+		return nil, fmt.Errorf("plugin: fetch: decode response: %w", err)
+	}
+	if env.Error != "" {
+		return nil, hostResultError("fetch", env.Error, env.Code)
+	}
+	if env.BodyHandle != "" {
+		// Too big for one envelope: the host parked the body; pull it in pieces.
+		body, err := readBodyChunks(env.BodyHandle, env.BodySize, readFetchChunk)
+		if err != nil {
+			return nil, err
+		}
+		env.Body = body
+	}
+	return &env.FetchResponse, nil
+}
+
+// callFetchHost sends one request to paca.fetch and returns the response
+// bytes, copied out of the host arena (which is then released).
+func callFetchHost(reqJSON []byte) ([]byte, error) {
 	outputBuf := make([]byte, 8)
 	hostFetch(
 		int64(ptrOf(reqJSON)), int64(len(reqJSON)),
@@ -308,18 +352,31 @@ func Fetch(method, rawURL string, headers map[string]string, body string) (*Fetc
 	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
 	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
 	if resLen == 0 {
-		return nil, fmt.Errorf("plugin: fetch: empty response from host")
+		return nil, errEmptyHostResponse("fetch")
 	}
 	resBytes := append([]byte(nil), wasmSlice(resPtr, resLen)...)
 	wasmResetAllocator()
-	var resp FetchResponse
-	if err := json.Unmarshal(resBytes, &resp); err != nil {
-		return nil, fmt.Errorf("plugin: fetch: decode response: %w", err)
+	return resBytes, nil
+}
+
+// readFetchChunk reads one piece of a body the host parked for handle.
+func readFetchChunk(handle string, offset, limit int) (*fetchChunk, error) {
+	reqJSON, err := json.Marshal(map[string]any{"body_handle": handle, "offset": offset, "limit": limit})
+	if err != nil {
+		return nil, err
 	}
-	if resp.Error != "" {
-		return nil, fmt.Errorf("plugin: fetch: %s", resp.Error)
+	resBytes, err := callFetchHost(reqJSON)
+	if err != nil {
+		return nil, err
 	}
-	return &resp, nil
+	var c fetchChunk
+	if err := json.Unmarshal(resBytes, &c); err != nil {
+		return nil, fmt.Errorf("plugin: fetch: decode body chunk: %w", err)
+	}
+	if c.Error != "" {
+		return nil, hostResultError("fetch", c.Error, c.Code)
+	}
+	return &c, nil
 }
 
 // ── GetBranding ───────────────────────────────────────────────────────────────
@@ -337,6 +394,7 @@ type BrandingInfo struct {
 type brandingResult struct {
 	BrandingInfo
 	Error string `json:"error"`
+	Code  string `json:"code"`
 }
 
 // GetBranding reads the workspace's current branding (logo, brand name,
@@ -349,7 +407,7 @@ func GetBranding() (*BrandingInfo, error) {
 	resPtr := int32(uint32(outputBuf[0]) | uint32(outputBuf[1])<<8 | uint32(outputBuf[2])<<16 | uint32(outputBuf[3])<<24)
 	resLen := int32(uint32(outputBuf[4]) | uint32(outputBuf[5])<<8 | uint32(outputBuf[6])<<16 | uint32(outputBuf[7])<<24)
 	if resLen == 0 {
-		return nil, fmt.Errorf("plugin: settings_get: empty response from host")
+		return nil, errEmptyHostResponse("settings_get")
 	}
 	resBytes := append([]byte(nil), wasmSlice(resPtr, resLen)...)
 	wasmResetAllocator()
@@ -358,7 +416,7 @@ func GetBranding() (*BrandingInfo, error) {
 		return nil, fmt.Errorf("plugin: settings_get: decode response: %w", err)
 	}
 	if res.Error != "" {
-		return nil, fmt.Errorf("plugin: settings_get: %s", res.Error)
+		return nil, hostResultError("settings_get", res.Error, res.Code)
 	}
 	return &res.BrandingInfo, nil
 }
