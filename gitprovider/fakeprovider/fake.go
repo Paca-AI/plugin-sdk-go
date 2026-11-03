@@ -201,7 +201,12 @@ func (c *Core) CompleteIdentitySetup(_ context.Context, req gp.CompleteSetupRequ
 	if req.State == "" || req.Params["token"] == "" {
 		return gp.Identity{}, gp.Errorf(gp.CodeValidation, "state and token are required")
 	}
-	return gp.Identity{Ref: gp.IdentityRef{ID: IdentityID, Handle: IdentityHandle}, Host: Host, Kind: gp.IdentityBotUser, DisplayName: "Paca Bot"}, nil
+	return seedIdentity(), nil
+}
+
+// seedIdentity is the one identity the fake knows.
+func seedIdentity() gp.Identity {
+	return gp.Identity{Ref: gp.IdentityRef{ID: IdentityID, Handle: IdentityHandle}, Host: Host, Kind: gp.IdentityBotUser, DisplayName: "Paca Bot"}
 }
 
 // ListRepositories implements gp.Provider.
