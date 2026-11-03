@@ -71,6 +71,7 @@ type FetchResponse struct {
 	Body    string            `json:"body"`
 	Headers map[string]string `json:"headers"`
 	Error   string            `json:"error"`
+	Code    string            `json:"code,omitempty"`
 }
 
 // Fetch always returns errNotWASM outside a WASM module.

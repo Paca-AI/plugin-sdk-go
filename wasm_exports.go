@@ -7,6 +7,8 @@
 // paca_free for host-managed memory allocation.
 package plugin
 
+import "unsafe"
+
 // ── Memory management ─────────────────────────────────────────────────────────
 
 // Exported as paca_malloc/paca_free, not malloc/free: TinyGo's own bundled
@@ -54,7 +56,7 @@ func HandleRequest(ptr, length int32) int64 {
 	// stacking the response after the request — otherwise a request near
 	// the arena's capacity would leave no room to allocate the response.
 	wasmResetAllocator()
-	return packWASMResult(result)
+	return packWASMResult(result, func(msg string) []byte { return errorResponse(500, msg) })
 }
 
 //go:wasmexport ResetAllocator
@@ -70,7 +72,9 @@ func EvaluateCondition(ptr, length int32) int64 {
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.evaluateCondition(payload)
 	wasmResetAllocator() // see HandleRequest: payload is fully consumed by this point
-	return packWASMResult(result)
+	return packWASMResult(result, func(msg string) []byte {
+		return marshalConditionResult(ConditionResult{Matched: false, Error: msg})
+	})
 }
 
 //go:wasmexport RunAction
@@ -81,28 +85,30 @@ func RunAction(ptr, length int32) int64 {
 	payload := wasmSlice(ptr, length)
 	result := globalDispatcher.runAction(payload)
 	wasmResetAllocator() // see HandleRequest: payload is fully consumed by this point
-	return packWASMResult(result)
+	return packWASMResult(result, func(msg string) []byte {
+		return marshalActionResult(ActionResult{Applied: false, Error: msg})
+	})
 }
 
-// packWASMResult allocates space in mallocBuffer for result, copies it in,
-// and returns the packed (ptr<<32)|len combined offset+length the host
-// expects — the same packing HandleRequest, EvaluateCondition, and RunAction
-// all use. NOTE: Host MUST copy out the response before calling
-// ResetAllocator, which is called after each export call completes.
-func packWASMResult(result []byte) int64 {
+// resultBuf keeps the last result alive, outside mallocBuffer, until the next
+// export call replaces it. The host reads a result from whatever linear-memory
+// address it is given, so a result does not have to fit the fixed arena the host
+// allocates request data in; the Go heap does not move objects, so the address
+// stays valid until then.
+var resultBuf []byte
+
+// packWASMResult returns result as the packed (ptr<<32)|len pair the host
+// expects. A result over maxResultBytes is replaced by what tooLarge builds, so
+// the host gets an explanation instead of an empty result. NOTE: the host reads
+// the result before the plugin's next export call.
+func packWASMResult(result []byte, tooLarge func(msg string) []byte) int64 {
+	resultBuf = nil // release the previous call's result
+	result = boundResult(result, tooLarge)
 	if len(result) == 0 {
 		return 0
 	}
-	outPtr := wasmMalloc(int32(len(result)))
-	if outPtr == 0 {
-		return 0
-	}
-	out := wasmSlice(outPtr, int32(len(result)))
-	if len(out) != len(result) {
-		return 0
-	}
-	copy(out, result)
-	return (int64(outPtr) << 32) | int64(len(result))
+	resultBuf = result
+	return (int64(uintptr(unsafe.Pointer(&resultBuf[0]))) << 32) | int64(len(resultBuf))
 }
 
 //go:wasmexport HandleEvent
@@ -111,7 +117,10 @@ func HandleEvent(topicPtr, topicLen, payloadPtr, payloadLen int32) {
 		return
 	}
 	topic := string(wasmSlice(topicPtr, topicLen))
-	payload := wasmSlice(payloadPtr, payloadLen)
+	// Copy: the handler may call host functions (KV, DB, Fetch, ...) that
+	// reset the shared arena once they have copied their own results out,
+	// which would otherwise overwrite an Event.Payload still aliasing it.
+	payload := append([]byte(nil), wasmSlice(payloadPtr, payloadLen)...)
 	globalDispatcher.handleEvent(topic, payload)
 }
 
